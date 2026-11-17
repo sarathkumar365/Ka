@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { api, keys } from '../../lib/api'
 import { Link } from 'react-router-dom'
 import { getTheme, setTheme } from '../../lib/theme'
+import { GoogleSection } from './GoogleSection'
 
 export function SettingsPage() {
   const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings })
@@ -39,6 +40,7 @@ export function SettingsPage() {
           ))}
         </ul>
       </section>
+      {data?.flags.google && <GoogleSection />}
       <section>
         <h2>Appearance</h2>
         <div className="row" style={{ justifyContent: 'space-between' }}>

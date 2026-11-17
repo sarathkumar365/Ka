@@ -18,6 +18,7 @@
 | evals | `flows/evals.md` | `tests/evals/*` |
 | chat | `flows/chat.md` | `server/api/{chat,approvals,describe}.py`, `server/agent/loop.py`, `server/agent/adapters/chain.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts` |
 | pending (UI) | `flows/pending.md` | `server/api/pending.py`, `ui/src/features/pending/*` |
+| google | `flows/google.md` | `server/integrations/google/*`, `server/finance/{drive_inbox,sheet_copy}.py`, `server/api/google.py`, `ui/src/features/settings/GoogleSection.tsx`, `ui/src/features/pending/StatementCard.tsx` |
 | activity | `flows/activity.md` | `server/api/{activity,describe}.py`, `ui/src/features/activity/*` |
 | settings | `flows/settings.md` | `server/api/settings.py`, `ui/src/features/settings/*` |
 | pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py` |

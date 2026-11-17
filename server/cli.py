@@ -61,6 +61,8 @@ def _import(args: argparse.Namespace) -> int:
         print("declined, nothing written")
         return 0
     print(f"written: {commit_import(p, store)} rows")
+    if cfg.flags.get("google"):
+        print("sheet: copied" if _push_sheet(cfg) else "sheet: not copied (see ka google status)")
     if cfg.flags.get("category_suggestions"):
         _queue_suggestions(cfg, store, p.unknown_merchants, p.unknown_types)
     return 0
@@ -102,6 +104,61 @@ def _suggest(_args: argparse.Namespace) -> int:
         return 2
     store = CsvFinanceStore(cfg.finance_dir)
     return _queue_suggestions(cfg, store, uncategorised(store), [])
+
+
+def _push_sheet(cfg) -> bool:
+    from server.finance.sheet_copy import push_from_config
+
+    return push_from_config(cfg)
+
+
+def _sheet(_args: argparse.Namespace) -> int:
+    cfg = load_config()
+    if not cfg.flags.get("google"):
+        print("error: flag google is off in config.yaml")
+        return 2
+    ok = _push_sheet(cfg)
+    print("sheet: copied" if ok else "sheet: not copied (see ka google status)")
+    return 0 if ok else 1
+
+
+def _google_probe(cfg, auth) -> int:
+    from server.integrations.google.drive import ApiDrive
+
+    creds = auth.credentials()
+    files = ApiDrive(creds).list_pdfs(cfg.google.drive_folder_id)
+    print(f"statements folder: {len(files)} PDF(s)")
+    for f in files:
+        print(f"  {f.name}")
+    from googleapiclient.discovery import build
+
+    sheet = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
+    title = sheet.get(spreadsheetId=cfg.google.sheet_id, fields="properties.title").execute()
+    print(f"sheet: {title['properties']['title']}")
+    return 0
+
+
+def _google(args: argparse.Namespace) -> int:
+    from server.integrations.google.oauth import GoogleAuthError, auth_for
+
+    cfg = load_config()
+    if not cfg.flags.get("google"):
+        print("error: flag google is off in config.yaml")
+        return 2
+    try:
+        auth = auth_for(cfg)
+        if args.action == "login":
+            auth.login_console()
+        if args.action == "probe":
+            return _google_probe(cfg, auth)
+        email = auth.email()
+        if email:
+            Db(cfg.db_path).set_state("google_email", email)
+        print(f"connected: {email or 'yes'}" if auth.connected() else "not connected")
+    except GoogleAuthError as e:
+        print(f"error: {e}")
+        return 1
+    return 0
 
 
 def _statements(_args: argparse.Namespace) -> int:
@@ -300,6 +357,12 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     imp.set_defaults(func=_import)
     sub.add_parser("statements", help="list statement PDFs").set_defaults(func=_statements)
+    goo = sub.add_parser("google", help="sign in to Google or show the connection")
+    goo.add_argument("action", choices=["login", "status", "probe"])
+    goo.set_defaults(func=_google)
+    sheet = sub.add_parser("sheet", help="copy finance rows to the Google Sheet")
+    sheet.add_argument("action", choices=["push"])
+    sheet.set_defaults(func=_sheet)
     sub.add_parser(
         "suggest", help="queue category suggestions for uncategorised rows"
     ).set_defaults(func=_suggest)

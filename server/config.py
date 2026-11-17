@@ -26,6 +26,19 @@ class ModelConfig(BaseModel):
         return self
 
 
+class GoogleConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    client_file: Path  # OAuth desktop client JSON; used in place, never copied
+    drive_folder_id: str
+    sheet_id: str
+
+    @field_validator("client_file")
+    @classmethod
+    def _expand(cls, v: Path) -> Path:
+        return v.expanduser()
+
+
 class Config(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -33,6 +46,7 @@ class Config(BaseModel):
     flags: dict[str, bool] = {}
     models: dict[str, ModelConfig] = {}
     private_models: list[ModelConfig] = []  # tried in order for finance conversations
+    google: GoogleConfig | None = None
     ui_hosts: list[str] = []
 
     @field_validator("private_models")
@@ -59,6 +73,10 @@ class Config(BaseModel):
     @property
     def db_path(self) -> Path:
         return self.data_repo / "local" / "ka.db"
+
+    @property
+    def google_dir(self) -> Path:
+        return self.data_repo / "local" / "google"
 
     @property
     def denylist_path(self) -> Path:

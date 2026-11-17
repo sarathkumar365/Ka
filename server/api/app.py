@@ -39,11 +39,11 @@ def create_app(
     start_scheduler: bool = False,
     private_factory: Callable[[], Adapter] | None = None,
 ) -> FastAPI:
-    from . import activity, chat, conversations, intake, onboarding, pending, settings
+    from . import activity, chat, conversations, google, intake, onboarding, pending, settings
     from .approvals import ApprovalBroker
 
-    scheduled = start_scheduler and cfg.flags.get("nightly_extraction")
-    lifespan = _scheduler_lifespan(cfg, adapter_factory, private_factory) if scheduled else None
+    jobs = _jobs(cfg, adapter_factory, private_factory) if start_scheduler else []
+    lifespan = _scheduler_lifespan(jobs) if jobs else None
     app = FastAPI(title="Ka", docs_url=None, redoc_url=None, lifespan=lifespan)
     allowed = {"127.0.0.1", "localhost", *cfg.ui_hosts}
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(allowed))
@@ -79,25 +79,31 @@ def create_app(
     app.state.running = set()
     app.state.lock = threading.Lock()
     app.state.pending_lock = threading.Lock()
-    for module in (conversations, pending, activity, settings, chat, intake, onboarding):
+    for module in (conversations, pending, activity, settings, chat, intake, onboarding, google):
         app.include_router(module.router, prefix="/api")
     if UI_DIST.is_dir():
         app.mount("/", SPAStatic(directory=UI_DIST, html=True), name="ui")
     return app
 
 
-def _scheduler_lifespan(
-    cfg: Config,
-    adapter_factory: Callable[[], Adapter],
-    private_factory: Callable[[], Adapter] | None,
-):
+def _jobs(cfg: Config, adapter_factory, private_factory) -> list:
+    from server.finance.drive_inbox import drive_job
+    from server.scheduler import ScheduledJob, nightly_job
+
+    jobs = []
+    if cfg.flags.get("nightly_extraction"):
+        nightly = nightly_job(cfg, adapter_factory, private_factory=private_factory)
+        # The catch-up runs in the scheduler thread right after start, so boot never waits on it.
+        jobs += [nightly, ScheduledJob("catch_up", {"trigger": "date"}, nightly.run)]
+    if cfg.flags.get("google") and cfg.google is not None:
+        jobs.append(drive_job(cfg))
+    return jobs
+
+
+def _scheduler_lifespan(jobs: list):
     from contextlib import asynccontextmanager
 
-    from server.scheduler import ScheduledJob, nightly_job, start_scheduler
-
-    nightly = nightly_job(cfg, adapter_factory, private_factory=private_factory)
-    # The catch-up runs in the scheduler thread right after start, so a slow model never delays boot.
-    jobs = [nightly, ScheduledJob("catch_up", {"trigger": "date"}, nightly.run)]
+    from server.scheduler import start_scheduler
 
     @asynccontextmanager
     async def lifespan(_app):

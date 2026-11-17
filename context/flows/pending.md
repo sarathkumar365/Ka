@@ -1,6 +1,6 @@
 # Flow: pending (UI)
 
-**Summary.** The Pending screen lists queued memories and onboarding intake cards (by-job cards with a tickbox per line, see [intake.md](intake.md)) and finance rule suggestions (bundle cards with section `categories` or `types`, see [import-statement.md](import-statement.md)) from `GET /api/pending` and approves or rejects them through the same functions as `ka pending`. Approval writes a validated git commit to the data repo; both actions add an activity row.
+**Summary.** The Pending screen lists queued memories and onboarding intake cards (by-job cards with a tickbox per line, see [intake.md](intake.md)) and finance rule suggestions (bundle cards with section `categories` or `types`, see [import-statement.md](import-statement.md)) and statement import cards from the Drive inbox (see [google.md](google.md)) from `GET /api/pending` and approves or rejects them through the same functions as `ka pending`. Approval writes a validated git commit to the data repo; both actions add an activity row.
 
 ## Worked example
 

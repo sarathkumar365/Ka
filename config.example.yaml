@@ -7,8 +7,13 @@ flags:
   intake: false
   category_suggestions: false
   private_routing: false
+  google: false
 ui_hosts: []  # extra Host names the UI accepts, e.g. a tailscale hostname
 models:
   default: {provider: openai, model: "set-me"}  # key comes from OPENAI_API_KEY in .env
 private_models:  # finance conversations, tried in order; an Ollama entry can go first later
   - {provider: openrouter, model: "set-me", zdr: true, only: [amazon-bedrock]}  # key from OPENROUTER_API_KEY
+google:  # Drive statement inbox and Sheet copy; IDs come from the folder and sheet URLs
+  client_file: set-me  # path to the OAuth desktop client JSON, kept outside the repo
+  drive_folder_id: set-me
+  sheet_id: set-me

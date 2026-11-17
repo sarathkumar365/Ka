@@ -52,7 +52,24 @@ export type BundleRow = {
   source: string | null
   created_at: string
 }
-export type PendingRow = MemoryRow | BundleRow
+export type StatementRow = {
+  kind: 'statement'
+  id: number
+  file: string
+  statement_id: string
+  account: string
+  period_start: string
+  period_end: string
+  rows: number
+  money_in: string // Decimal as text: never parsed to a number
+  money_out: string
+  checks: string[]
+  unknown_merchants: number
+  already_imported: boolean
+  source: string | null
+  created_at: string
+}
+export type PendingRow = MemoryRow | BundleRow | StatementRow
 export type IntakeJob = {
   id: string
   kind: 'documents' | 'memory'
@@ -70,6 +87,12 @@ export type ActivityRow = {
   conversation_id: string | null
 }
 export type OnboardingStatus = { needed: boolean; reason: string }
+export type GoogleStatus = {
+  connected: boolean
+  email: string | null
+  drive_sync: { at: string; new?: number; skipped?: string[]; error?: string } | null
+  sheet: { at: string; ok?: boolean; error?: string } | null
+}
 export type Settings = {
   models: Record<string, { provider: string; model: string }>
   flags: Record<string, boolean>
@@ -82,6 +105,7 @@ export const keys = {
   activity: ['activity'] as const,
   settings: ['settings'] as const,
   onboarding: ['onboarding'] as const,
+  google: ['google'] as const,
   intake: (id: string) => ['intake', id] as const,
 }
 
@@ -97,6 +121,10 @@ export const api = {
   rejectPending: (id: number) => post(`/pending/${id}/reject`),
   activity: () => call<ActivityRow[]>('/activity'),
   settings: () => call<Settings>('/settings'),
+  googleStatus: () => call<GoogleStatus>('/google/status'),
+  googleSync: () => call<{ new: number; skipped: string[] }>('/google/sync', { method: 'POST' }),
+  googlePush: () => post('/google/push'),
+  googleDisconnect: () => post('/google/disconnect'),
   onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
   completeOnboarding: () => post('/onboarding/complete') as Promise<{ ok: boolean }>,
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),

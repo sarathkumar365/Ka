@@ -1,6 +1,6 @@
 # Flow: settings
 
-**Summary.** `GET /api/settings` returns the configured models and the private model chain (provider and model name only) and feature flags from `config.yaml`. The screen is read-only; the theme toggle is stored in the browser.
+**Summary.** `GET /api/settings` returns the configured models and the private model chain (provider and model name only) and feature flags from `config.yaml`. The screen is read-only except the theme (stored in the browser) and, with flag `google` on, the Google section: Connect, Sync now, Copy to Sheet and Disconnect, with the last Drive sync, skipped files and the Sheet copy status (see [google.md](google.md)).
 
 ## Why this way
 
