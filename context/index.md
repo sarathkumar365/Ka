@@ -11,3 +11,4 @@
 | Flow | Doc | Source files |
 |---|---|---|
 | import-statement | `flows/import-statement.md` | `server/finance/{parser,reconcile,tagging,store,importer}.py`, `server/cli.py` |
+| tools | `flows/tools.md` | `server/agent/tools/*.py`, `server/finance/{queries,statements}.py`, `server/integrations/data_repo/writer.py` |
