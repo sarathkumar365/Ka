@@ -58,3 +58,18 @@ def test_tools_return_strings_limit_rows_and_mark_imported_files(ctx):
 def test_finance_summary_rejects_start_after_end(ctx):
     with pytest.raises(ToolError, match="start"):
         run_tool("finance_summary", {"start": "2031-05-01", "end": "2031-04-01"}, ctx)
+
+
+def test_finance_coverage_lists_months_and_statements(ctx):
+    seed(ctx)
+    out = run_tool("finance_coverage", {}, ctx)
+    assert out["has_data"] and out["rows"] == 3
+    assert (out["data_from"], out["data_to"]) == ("2031-04-01", "2031-04-03")
+    assert out["months"] == [{"month": "2031-04", "rows": 3}]
+    assert out["statements"][0]["period_start"] == "2031-03-24"
+    empty = run_tool(
+        "finance_coverage",
+        {},
+        ctx.__class__(config=ctx.config, store=type(ctx.store)(ctx.store.folder / "x")),
+    )
+    assert empty["has_data"] is False and empty["months"] == []

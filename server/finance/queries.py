@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from server.integrations.data_repo.schemas.common import KaModel
 
-from .models import Transaction
+from .models import StatementRecord, Transaction
 from .tagging import norm
 
 SPENDING_TAGS = {"purchase", "fee", "refund", "nsf_return"}
@@ -52,6 +52,30 @@ def summarise(rows: list[Transaction], start: date, end: date) -> Summary:
         debt_payments=-_total(inside, {"debt_payment"}),
         borrowing=_total(inside, {"borrowing"}),
     )
+
+
+def coverage(rows: list[Transaction], statements: list[StatementRecord]) -> dict:
+    """What is stored: overall range, rows per calendar month, and each statement's period."""
+    months: dict[str, int] = {}
+    for r in rows:
+        key = f"{r.date:%Y-%m}"
+        months[key] = months.get(key, 0) + 1
+    return {
+        "has_data": bool(rows),
+        "rows": len(rows),
+        "data_from": min((r.date for r in rows), default=None),
+        "data_to": max((r.date for r in rows), default=None),
+        "months": [{"month": m, "rows": n} for m, n in sorted(months.items())],
+        "statements": [
+            {
+                "statement_id": s.statement_id,
+                "period_start": s.period_start,
+                "period_end": s.period_end,
+                "file_name": s.file_name,
+            }
+            for s in statements
+        ],
+    }
 
 
 def find_transactions(

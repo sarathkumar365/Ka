@@ -8,6 +8,8 @@ READS = {
     "sum_transactions": "Added up transactions",
     "list_statements": "Listed statements",
     "search_conversations": "Searched past chats",
+    "search": "Searched your data",
+    "finance_coverage": "Checked which months have data",
     "get_jobs": "Read your jobs",
     "get_profile": "Read your profile",
 }
@@ -26,6 +28,10 @@ def describe_call(name: str, args: dict, result: str) -> tuple[str, str]:
         parsed = json.loads(result)
     except (json.JSONDecodeError, TypeError):
         parsed = None
+    if isinstance(parsed, dict):  # results like {"rows": [...]}: count the list inside
+        parsed = next(
+            (parsed[k] for k in ("rows", "hits", "files") if isinstance(parsed.get(k), list)), None
+        )
     if isinstance(parsed, list):
         sentence += f", {len(parsed)} row{'s' if len(parsed) != 1 else ''}"
     return kind, sentence + "."

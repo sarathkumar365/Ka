@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import Field, model_validator
 
-from server.finance.queries import find_transactions, sum_rows, summarise
+from server.finance.queries import coverage, find_transactions, sum_rows, summarise
 from server.finance.statements import list_statement_files
 from server.integrations.data_repo.schemas.common import KaModel
 
@@ -50,6 +50,17 @@ class NoArgs(KaModel):
 )
 def finance_summary(args: PeriodArgs, ctx: ToolContext):
     return summarise(ctx.store.transactions(), args.start, args.end)
+
+
+@tool(
+    "finance_coverage",
+    "Which dates the imported finance data covers: overall range, rows per month and each "
+    "statement's period. Call it when the period is unclear or a summary comes back empty. "
+    "A statement can straddle two months, so a month may be only partly covered.",
+    NoArgs,
+)
+def finance_coverage(args: NoArgs, ctx: ToolContext):
+    return coverage(ctx.store.transactions(), ctx.store.statements())
 
 
 @tool(

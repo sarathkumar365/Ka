@@ -40,6 +40,7 @@ Request `propose_change {target: highlight, op: add, parent: "Acme Widgets|2022-
 | Target file has uncommitted edits | refused at plan and again at apply |
 | Second plan applied after the first | `changed since proposal` |
 | `import_statement` with `../x.pdf`, non-PDF, imported, or failing checks | `ToolError`, nothing written |
+| Summary asked for a month the data only partly covers | `finance_coverage` returns the overall range, rows per month and each statement period; the prompt tells the model to state which dates a figure covers |
 | `search_transactions` matches more than the limit | `truncated: true` plus `total_matches` |
 
 Not yet: `search_conversations` (step 6), inferred memory and the pending queue (step 7), the approval prompt and loop (step 6), Drive as statement source.
