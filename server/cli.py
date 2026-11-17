@@ -61,7 +61,46 @@ def _import(args: argparse.Namespace) -> int:
         print("declined, nothing written")
         return 0
     print(f"written: {commit_import(p, store)} rows")
+    if cfg.flags.get("category_suggestions"):
+        _queue_suggestions(cfg, store, p.unknown_merchants, p.unknown_types)
     return 0
+
+
+def _queue_suggestions(cfg, store, merchants: list[str], types: list[str]) -> int:
+    from server.finance.suggest import (
+        not_pending,
+        queue_suggestions,
+        suggest_categories,
+        suggest_types,
+    )
+
+    load_env()
+    db = Db(cfg.db_path)
+    merchants = not_pending(db, merchants)
+    if not merchants and not types:
+        print("nothing to suggest")
+        return 0
+    try:
+        adapter = build_adapter(cfg.models["default"])
+        cats = suggest_categories(merchants, load_data(cfg.data_repo), adapter)
+        tags = suggest_types(types, adapter)
+    except AdapterError as e:
+        print(f"suggestions skipped: {e}")
+        return 1
+    n = queue_suggestions(db, cats, tags, "import", datetime.now())
+    print(f"queued {len(cats)} category and {len(tags)} type suggestion(s) in {n} card(s)")
+    return 0
+
+
+def _suggest(_args: argparse.Namespace) -> int:
+    from server.finance.suggest import uncategorised
+
+    cfg = load_config()
+    if not cfg.flags.get("category_suggestions"):
+        print("error: flag category_suggestions is off in config.yaml")
+        return 2
+    store = CsvFinanceStore(cfg.finance_dir)
+    return _queue_suggestions(cfg, store, uncategorised(store), [])
 
 
 def _statements(_args: argparse.Namespace) -> int:
@@ -97,7 +136,8 @@ def _serve(args: argparse.Namespace) -> int:
         return 2
     model = cfg.models["default"]
     build_adapter(model)  # fail now, not on the first message, if the key is missing
-    uvicorn.run(create_app(cfg, lambda: build_adapter(model)), host="127.0.0.1", port=args.port)
+    app = create_app(cfg, lambda: build_adapter(model), start_scheduler=True)
+    uvicorn.run(app, host="127.0.0.1", port=args.port)
     return 0
 
 
@@ -162,13 +202,17 @@ def _extract(args: argparse.Namespace) -> int:
         print(f"error: no models.{which} in config.yaml")
         return 2
     day = date.fromisoformat(args.date) if args.date else date.today()
-    n = extract_memories(
-        day,
-        Db(cfg.db_path),
-        load_data(cfg.data_repo),
-        build_adapter(cfg.models[which]),
-        datetime.now(),
-    )
+    try:
+        n = extract_memories(
+            day,
+            Db(cfg.db_path),
+            load_data(cfg.data_repo),
+            build_adapter(cfg.models[which]),
+            datetime.now(),
+        )
+    except AdapterError as e:
+        print(f"error: {e}")
+        return 1
     print(f"queued {n} item(s) from {day}")
     return 0
 
@@ -197,7 +241,16 @@ def _pending(args: argparse.Namespace) -> int:
         bundle = item is not None and item.kind == "bundle"
         if args.action == "approve":
             if bundle:
-                print(approve_bundle(args.id, None, cfg.data_repo, db, date.today()))
+                print(
+                    approve_bundle(
+                        args.id,
+                        None,
+                        cfg.data_repo,
+                        db,
+                        date.today(),
+                        CsvFinanceStore(cfg.finance_dir),
+                    )
+                )
             else:
                 print(approve_pending(args.id, cfg.data_repo, db, date.today()))
         else:
@@ -218,6 +271,9 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("--yes", action="store_true", help="skip the confirmation prompt")
     imp.set_defaults(func=_import)
     sub.add_parser("statements", help="list statement PDFs").set_defaults(func=_statements)
+    sub.add_parser(
+        "suggest", help="queue category suggestions for uncategorised rows"
+    ).set_defaults(func=_suggest)
     chat = sub.add_parser("chat", help="talk to Ka in the terminal")
     chat.add_argument("--local", action="store_true", help="use the local Ollama model only")
     chat.add_argument("--resume", help="continue a saved conversation id")

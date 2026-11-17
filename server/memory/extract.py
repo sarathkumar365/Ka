@@ -63,7 +63,13 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
         or "(none)"
     )
     queued = 0
+    failed = 0
+    done_key = f"extraction_done:{day.isoformat()}"
+    # A retried day skips chats that already succeeded: a second pass rewords facts into duplicates.
+    done = set(json.loads(db.get_state(done_key) or "[]"))
     for cid in db.conversations_on(day):
+        if cid in done:
+            continue
         messages = db.messages(cid)
         if not any(m["role"] == "user" for m in messages):
             continue
@@ -75,6 +81,7 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
             reply = adapter.complete(prompt, [])
         except AdapterError as e:
             log.warning("extraction skipped for %s: %s", cid, e)
+            failed += 1
             continue
         for item in parse_items(reply.text or ""):
             kind = item.get("type") if item.get("type") in TYPES else "fact"
@@ -84,4 +91,9 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
                 log.warning("dropped item from %s: %s", cid, e)
                 continue
             queued += result["queued"]
+        done.add(cid)
+        db.set_state(done_key, json.dumps(sorted(done)))
+    if failed:
+        # Items already queued stay (the queue dedupes a retry); the day must be tried again.
+        raise AdapterError(f"model unavailable for {failed} conversation(s) on {day}")
     return queued

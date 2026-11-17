@@ -10,10 +10,10 @@
 
 | Flow | Doc | Source files |
 |---|---|---|
-| import-statement | `flows/import-statement.md` | `server/finance/{parser,reconcile,tagging,store,importer}.py`, `server/cli.py` |
+| import-statement | `flows/import-statement.md` | `server/finance/{parser,reconcile,tagging,store,importer,suggest}.py`, `server/cli.py` |
 | tools | `flows/tools.md` | `server/agent/tools/*.py`, `server/finance/{queries,statements}.py`, `server/integrations/data_repo/writer.py` |
 | ask-question | `flows/ask-question.md` | `server/agent/{loop,prompt}.py`, `server/agent/adapters/*.py`, `server/store/db.py`, `server/chat.py` |
-| nightly-extraction | `flows/nightly-extraction.md` | `server/memory/extract.py`, `server/cli.py` |
+| nightly-extraction | `flows/nightly-extraction.md` | `server/memory/extract.py`, `server/scheduler.py`, `server/cli.py` |
 | review-pending | `flows/review-pending.md` | `server/memory/pending.py`, `server/agent/tools/memory_tools.py`, `server/cli.py` |
 | evals | `flows/evals.md` | `tests/evals/*` |
 | chat | `flows/chat.md` | `server/api/{chat,approvals,describe}.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts` |

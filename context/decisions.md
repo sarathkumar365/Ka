@@ -234,7 +234,7 @@ Deferred to keep v1 small. v1 answers in text and markdown tables.
 
 UI routes: /chat and /chat/:id (conversations), /pending (memories and rules to review), /activity (log), /onboarding (the five intake steps), /settings (models, connected sources, Google account). Frontend: a ui folder in the code repo with React Router, TanStack Query, Tailwind and shadcn, and fetchEventSource for streaming. Backend API: FastAPI endpoints for chat streaming, conversations, approvals, pending items, activity, onboarding imports and statement uploads.
 
-Backend libraries: FastAPI, Pydantic, openai client (OpenRouter and Ollama), official MCP Python SDK (Google servers), pdfplumber (test on a real statement first), ruamel.yaml (keeps comments and order so diffs stay clean), git via subprocess inside tool code (the model never runs commands), sqlite3 with FTS5, APScheduler for the nightly job (runs at next start if missed), pytest.
+Backend libraries: FastAPI, Pydantic, openai client (OpenRouter and Ollama), official MCP Python SDK (connectors), Google API client libraries (Drive and Sheets), pdfplumber (test on a real statement first), ruamel.yaml (keeps comments and order so diffs stay clean), git via subprocess inside tool code (the model never runs commands), sqlite3 with FTS5, APScheduler for the nightly job (runs at next start if missed), pytest.
 
 Voice: v1 has a mic button in chat using the browser's speech-to-text and text-to-speech (free, no extra backend). v1.1 or v1.2 adds natural, low-latency realtime voice (like a live voice call) through a realtime speech API.
 
@@ -327,3 +327,19 @@ The coding agent builds against mocks and synthetic data until each item is read
 ## First-run onboarding addendum (2026-11-17)
 
 - The app opens on `/onboarding` when intake is on, onboarding was never finished or skipped, and no jobs are stored. State is one key in `ka.db` (`app_state.onboarding_done`), not in the data repo. Skip is always available; a failing check never redirects. Plan: `Docs/superpowers/plans/2026-11-17-ka-first-run-onboarding.md`.
+
+## Google via direct APIs addendum (2026-11-17)
+
+- Google's Workspace MCP servers (Developer Preview) are not available to the owner's account: the preview rejects Gmail accounts. The fallback in this spec applies. Drive and Sheets use the direct Drive API v3 and Sheets API v4 through the official Python client libraries, behind `DriveClient` and `SheetsClient` interfaces, so an MCP implementation can replace them later without changing callers.
+- Auth: installed-app OAuth flow, desktop client, stored refresh token. Ka requests `drive.readonly`, `spreadsheets`, `openid` and `userinfo.email`. The consent screen is in production and unverified (a one-time warning) and is shared with another app in the same Cloud project; Ka never changes project settings.
+- Secrets and IDs stay outside the code repo. The client file path, folder ID and sheet ID live in the local `config.yaml`; the token lives in `<data_repo>/local/google/token.json`.
+- Role: a Drive statements folder is an inbox that queues import cards in Pending; approved rows are copied to a Google Sheet. The local CSV stays the store of truth.
+- The MCP client is still built, for the GitHub, Notion and Gmail connectors. Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-google.md`.
+- Voice (mic and realtime) moves to v1.1 (owner's call).
+
+## Categories and scheduler addendum (2026-11-17)
+
+- After an import commits (flag `category_suggestions`), one model call suggests a category and a short match text for each uncategorised merchant, and a tag for each unknown type text. Code guards drop anything outside `categories.yaml` or `Tag`, and any match under 4 characters or not inside the merchant text. Suggestions land in Pending as bundle cards; `ka suggest` backfills stored rows.
+- Approving a categories card commits the merchant rules, then fills the category on stored rows that have none. A category is never overwritten, and own-account rows never get one. New type rules apply from the next import only, because re-tagging would change totals already reported.
+- Nightly extraction runs inside `ka serve` (APScheduler, 03:00 local, flag `nightly_extraction`). At start it catches up missed days, at most 7, and records each finished day in `app_state`.
+- Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-categories-scheduler-evals.md`.

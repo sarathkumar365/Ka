@@ -45,4 +45,8 @@ Request `propose_change {target: highlight, op: add, parent: "Acme Widgets|2022-
 
 Not yet: `search_conversations` (step 6), inferred memory and the pending queue (step 7), the approval prompt and loop (step 6), Drive as statement source.
 
+A `search` hit on a highlight carries `job` (`Company|start`), so the model can name the employer without a second call (eval q10 failed for lack of it).
+
+Writer targets include `transaction_type` (in `rules/transaction_types.yaml`, no id; key `bank|type_text`, like a job's `company|start`), so a type rule can be proposed in chat or approved from a suggestion card.
+
 Interview questions: [tools.interview.md](tools.interview.md)

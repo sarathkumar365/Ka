@@ -1,6 +1,6 @@
 # Flow: pending (UI)
 
-**Summary.** The Pending screen lists queued memories and onboarding intake cards (by-job cards with a tickbox per line, see [intake.md](intake.md)) from `GET /api/pending` and approves or rejects them through the same functions as `ka pending`. Approval writes a validated git commit to the data repo; both actions add an activity row.
+**Summary.** The Pending screen lists queued memories and onboarding intake cards (by-job cards with a tickbox per line, see [intake.md](intake.md)) and finance rule suggestions (bundle cards with section `categories` or `types`, see [import-statement.md](import-statement.md)) from `GET /api/pending` and approves or rejects them through the same functions as `ka pending`. Approval writes a validated git commit to the data repo; both actions add an activity row.
 
 ## Worked example
 
@@ -17,6 +17,7 @@ A queued item replaces memory M-0001. The card shows "Saved now" (the old text, 
 |---|---|
 | Item already handled in the CLI | 409, card shows the message, list refreshes |
 | Data repo has uncommitted edits to `memory.yaml` | 409 with the writer's message |
+| Categories card approved | Rules committed, then empty categories on stored rows filled; result says `categorised N rows` |
 
 Source: `server/api/pending.py`, `ui/src/features/pending/*`. Terminal flow: [review-pending.md](review-pending.md)
 

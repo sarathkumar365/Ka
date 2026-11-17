@@ -63,3 +63,39 @@ def test_extract_contradiction_queues_with_replaces():
     items = [{"type": "preference", "text": "Prefers hybrid roles", "replaces": "M-0001"}]
     extract_memories(DAY, db, load_data(FIXTURE), FakeAdapter([reply(items)]), NOW)
     assert db.list_pending()[0].payload["replaces"] == "M-0001"
+
+
+def test_retry_skips_conversations_already_extracted(ctx):
+    from datetime import date, datetime
+
+    from server.agent.adapters import AdapterError
+    from server.agent.adapters.base import Reply
+    from server.integrations.data_repo.loader import load_data
+    from server.memory.extract import extract_memories
+    from server.store.db import Db
+
+    db = Db(":memory:")
+    at = datetime(2031, 4, 9, 10, 0)
+    a, b = db.new_conversation(at), db.new_conversation(at)
+    for c in (a, b):
+        db.add_message(c, {"role": "user", "content": "hello"}, at)
+
+    class Flaky:
+        def __init__(self, fail_on):
+            self.calls, self.fail_on = 0, fail_on
+
+        def complete(self, messages, tools):
+            self.calls += 1
+            if self.calls in self.fail_on:
+                raise AdapterError("timeout")
+            return Reply(text="[]")
+
+    first = Flaky({2})
+    data = load_data(ctx.config.data_repo)
+    try:
+        extract_memories(date(2031, 4, 9), db, data, first, at)
+    except AdapterError:
+        pass
+    second = Flaky(set())
+    extract_memories(date(2031, 4, 9), db, data, second, at)
+    assert second.calls == 1

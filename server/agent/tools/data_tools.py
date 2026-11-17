@@ -56,27 +56,33 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value)
 
 
-def _records(data: KaData) -> list[tuple[str, str, str]]:
+def _records(data: KaData) -> list[tuple[str, str, str, str | None]]:
+    """(file, id, searchable text, job key for a highlight so the answer can name the employer)."""
+
     def dump(m):
         return m.model_dump(mode="json")
 
-    out = [("profile.yaml", "profile", _text(dump(data.profile)))]
-    out += [("education.yaml", e.id, _text(dump(e))) for e in data.education.entries]
-    out += [("jobs.yaml", d.id, _text(dump(d))) for d in data.jobs.domains]
+    out: list[tuple[str, str, str, str | None]] = [
+        ("profile.yaml", "profile", _text(dump(data.profile)), None)
+    ]
+    out += [("education.yaml", e.id, _text(dump(e)), None) for e in data.education.entries]
+    out += [("jobs.yaml", d.id, _text(dump(d)), None) for d in data.jobs.domains]
     for job in data.jobs.jobs:
         out.append(
             (
                 "jobs.yaml",
                 f"{job.company}|{job.start}",
                 _text(dump(job.model_copy(update={"highlights": []}))),
+                None,
             )
         )
-        out += [("jobs.yaml", h.id, _text(dump(h))) for h in job.highlights]
-    out += [("guardrails.yaml", g.id, _text(dump(g))) for g in data.guardrails.rules]
-    out += [("memory.yaml", m.id, _text(dump(m))) for m in data.memory.entries]
-    out += [("accounts.yaml", a.id, _text(dump(a))) for a in data.accounts.accounts]
-    out += [("rules/merchants.yaml", r.id, _text(dump(r))) for r in data.merchant_rules.rules]
-    out += [("other.yaml", r.id, _text(dump(r))) for r in data.other.records]
+        key = f"{job.company}|{job.start}"
+        out += [("jobs.yaml", h.id, _text(dump(h)), key) for h in job.highlights]
+    out += [("guardrails.yaml", g.id, _text(dump(g)), None) for g in data.guardrails.rules]
+    out += [("memory.yaml", m.id, _text(dump(m)), None) for m in data.memory.entries]
+    out += [("accounts.yaml", a.id, _text(dump(a)), None) for a in data.accounts.accounts]
+    out += [("rules/merchants.yaml", r.id, _text(dump(r)), None) for r in data.merchant_rules.rules]
+    out += [("other.yaml", r.id, _text(dump(r)), None) for r in data.other.records]
     return out
 
 
@@ -86,8 +92,8 @@ def search(args: SearchArgs, ctx: ToolContext):
     if not needle:
         raise ToolError("query must not be blank")
     hits = [
-        {"file": f, "id": i, "snippet": t[:SNIPPET_CHARS]}
-        for f, i, t in _records(ctx.data)
+        {"file": f, "id": i, "snippet": t[:SNIPPET_CHARS], **({"job": j} if j else {})}
+        for f, i, t, j in _records(ctx.data)
         if needle in t.casefold()
     ]
     return {"hits": hits[: args.limit], "truncated": len(hits) > args.limit}

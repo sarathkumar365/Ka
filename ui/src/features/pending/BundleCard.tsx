@@ -9,6 +9,8 @@ const KIND: Record<BundleRow['section'], string> = {
   domains: 'Domains',
   job: 'Job',
   highlights: 'More highlights',
+  categories: 'Spending categories',
+  types: 'Transaction types',
 }
 
 export function BundleCard({ card }: { card: BundleRow }) {

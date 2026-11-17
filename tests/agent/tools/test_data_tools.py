@@ -19,3 +19,9 @@ def test_get_jobs_hides_retired_highlights_by_default(ctx):
 def test_get_jobs_gives_each_job_the_key_propose_change_needs(ctx):
     keys = [j["key"] for j in run_tool("get_jobs", {}, ctx)["jobs"]]
     assert keys == ["Acme Widgets|2022-03", "Beta Labs|2019-06"]
+
+
+def test_search_highlight_hit_names_its_job(ctx):
+    hits = run_tool("search", {"query": "react"}, ctx)["hits"]
+    h = next(h for h in hits if h["id"] == "H-003")
+    assert h["job"].startswith("Beta Labs|")

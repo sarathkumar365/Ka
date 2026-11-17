@@ -43,7 +43,7 @@ export type BundleRow = {
   kind: 'bundle'
   id: number
   title: string
-  section: 'basics' | 'education' | 'domains' | 'job' | 'highlights'
+  section: 'basics' | 'education' | 'domains' | 'job' | 'highlights' | 'categories' | 'types'
   blocked: string | null
   note: string | null
   needs: number[]

@@ -3,6 +3,8 @@
 from datetime import date
 from pathlib import Path
 
+from server.finance.store import FinanceStore
+from server.finance.tagging import reapply_rules
 from server.integrations.data_repo.loader import load_data
 from server.integrations.data_repo.writer import ChangeError, Patch, apply_change, plan_batch
 from server.memory.pending import PendingError
@@ -19,7 +21,12 @@ def _card(db: Db, item_id: int):
 
 
 def approve_bundle(
-    item_id: int, selected: list[str] | None, root: Path, db: Db, today: date
+    item_id: int,
+    selected: list[str] | None,
+    root: Path,
+    db: Db,
+    today: date,
+    store: FinanceStore | None = None,
 ) -> str:
     card = _card(db, item_id)
     p = card.payload
@@ -51,6 +58,10 @@ def approve_bundle(
             if resolved:
                 fields["domains"] = resolved
             patch = patch.model_copy(update={"fields": fields})
+        if patch.target == "merchant_rule" and patch.op == "add":
+            patch = patch.model_copy(
+                update={"fields": {**patch.fields, "approved": today.isoformat()}}
+            )
         patches.append(patch)
     try:
         plan = plan_batch(root, patches, f"data: intake {p['title']}")
@@ -58,7 +69,11 @@ def approve_bundle(
     except ChangeError as e:
         raise PendingError(str(e)) from e
     db.set_pending_status(item_id, "approved")  # the commit exists; never apply it twice
-    return f"committed {sha}"
+    result = f"committed {sha}"
+    # Type rules apply from the next import only: re-tagging would change totals already seen.
+    if store is not None and p["section"] == "categories":
+        result += f"; categorised {reapply_rules(store, load_data(root))} rows"
+    return result
 
 
 def reject_bundle(item_id: int, db: Db) -> None:

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from server.config import Config
+from server.finance.store import CsvFinanceStore
 from server.intake.approve import approve_bundle, reject_bundle
 from server.integrations.data_repo.loader import load_data
 from server.memory.pending import PendingError, approve_pending, reject_pending
@@ -81,7 +82,14 @@ def approve(
         with request.app.state.pending_lock:  # check, commit and status update must not interleave
             if item.kind == "bundle":
                 selected = body.selected if body else None
-                result = approve_bundle(item_id, selected, cfg.data_repo, db, date.today())
+                result = approve_bundle(
+                    item_id,
+                    selected,
+                    cfg.data_repo,
+                    db,
+                    date.today(),
+                    CsvFinanceStore(cfg.finance_dir),
+                )
             else:
                 result = approve_pending(item_id, cfg.data_repo, db, date.today())
     except PendingError as e:

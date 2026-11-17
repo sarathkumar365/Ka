@@ -11,6 +11,7 @@ from server.integrations.data_repo.loader import KaData
 from server.integrations.data_repo.schemas.rules import TransactionTypeRule, TransactionTypesFile
 
 from .models import LedgerRow, Transaction
+from .store import FinanceStore
 
 DEFAULTS_DIR = Path(__file__).parent / "defaults"
 NETTING_WINDOW = timedelta(days=60)
@@ -130,3 +131,21 @@ def tag_rows(
             result.unknown_merchants.append(tx.description)
         result.transactions.append(tx)
     return result
+
+
+# Rows that move money between the owner's own accounts never get a spending category.
+NO_CATEGORY_TAGS = {"own_transfer", "debt_payment", "borrowing"}
+
+
+def reapply_rules(store: FinanceStore, data: KaData) -> int:
+    """Fill empty categories on stored rows from the merchant rules, first match wins."""
+    rules = [(norm(m.match), m.category) for m in data.merchant_rules.rules]
+    changes = {}
+    for t in store.transactions():
+        if t.category or t.tag in NO_CATEGORY_TAGS:
+            continue
+        text = norm(t.description)
+        category = next((c for m, c in rules if m in text), "")
+        if category:
+            changes[t.id] = category
+    return store.update_categories(changes) if changes else 0

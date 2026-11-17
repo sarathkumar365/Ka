@@ -17,7 +17,7 @@ from .schemas.common import KaModel
 
 Target = Literal[
     "profile", "education", "domain", "job", "highlight", "guardrail",
-    "memory", "account", "merchant_rule", "other_record",
+    "memory", "account", "merchant_rule", "other_record", "transaction_type",
 ]  # fmt: skip
 
 # target -> (file, list key in that file, id prefix, id width). Jobs have no id; profile is a mapping.
@@ -31,6 +31,13 @@ LISTS = {
     "account": ("accounts.yaml", "accounts", "A", 2),
     "merchant_rule": ("rules/merchants.yaml", "rules", "R", 3),
     "other_record": ("other.yaml", "records", "O", 3),
+    "transaction_type": ("rules/transaction_types.yaml", "types", "", 0),
+}
+# Records without an id, found by a natural key instead; KEY_FIELDS cannot change on update.
+KEY_FIELDS = {"job": {"company", "start"}, "transaction_type": {"bank", "type_text"}}
+NATURAL_KEYS = {
+    "job": lambda r: f"{r.get('company')}|{r.get('start')}",
+    "transaction_type": lambda r: f"{r.get('bank')}|{r.get('type_text')}",
 }
 RETIRE = {"highlight": ("retired", True), "memory": ("status", "retired")}
 
@@ -88,12 +95,13 @@ def _check_clean(root: Path, paths: list[str]) -> None:
 
 
 def _job_key(job: Any) -> str:
-    return f"{job['company']}|{job['start']}"
+    return NATURAL_KEYS["job"](job)
 
 
 def _find(items: list, key: str, by_job_key: bool, what: str) -> Any:
+    natural = NATURAL_KEYS.get(what) if by_job_key else None
     for item in items:
-        if (_job_key(item) if by_job_key else str(item.get("id"))) == key:
+        if (natural(item) if natural else str(item.get("id"))) == key:
             return item
     raise ChangeError(f"{what} not found: {key}")
 
@@ -137,7 +145,7 @@ def _edit(ed: _Editor, p: Patch) -> str:
         raise ChangeError(f"{path} is empty; add its structure by hand first")
     if p.op == "add" and doc.get(list_key) is None:
         doc[list_key] = []
-    is_job, is_highlight = p.target == "job", p.target == "highlight"
+    is_job, is_highlight = p.target in NATURAL_KEYS, p.target == "highlight"
     items = doc.get(list_key)
     if items is None:  # only reachable for update, retire and delete: nothing to find
         items = []
@@ -152,7 +160,7 @@ def _edit(ed: _Editor, p: Patch) -> str:
             target_list = items
         if is_job:
             record = dict(p.fields)
-            key = f"{record.get('company')}|{record.get('start')}"
+            key = NATURAL_KEYS[p.target](record)
         else:
             key = ed.new_id(prefix, width)
             record = {"id": key, **p.fields}
@@ -177,8 +185,10 @@ def _edit(ed: _Editor, p: Patch) -> str:
         record, container = _find(items, p.key, is_job, p.target), items
 
     if p.op == "update":
-        if is_job and ({"company", "start"} & set(p.fields)):
-            raise ChangeError("company and start identify a job; delete and re-add")
+        identity = KEY_FIELDS.get(p.target, set()) & set(p.fields)
+        if identity:
+            names = " and ".join(sorted(KEY_FIELDS[p.target]))
+            raise ChangeError(f"{names} identify a {p.target}; delete and re-add")
         for k, v in p.fields.items():
             record[k] = v
     elif p.op == "retire":
