@@ -315,3 +315,11 @@ The coding agent builds against mocks and synthetic data until each item is read
 - No component library (shadcn dropped): the design is bespoke, styles are plain CSS variables plus Tailwind.
 - Markdown answers (tables included) are the only rich rendering; `show_view` stays v1.2.
 - Phone: responsive web plus iOS PWA. No auth; the server binds to localhost and a phone uses `tailscale serve` with the hostname in `ui_hosts`.
+
+## Onboarding intake addendum (2026-11-17)
+
+- Delivered: resume and pasted-memory intake as background jobs, review by job in Pending, `ka intake`, and the Onboarding screen (basics, documents, sources stub, memory paste, review). Design: `Docs/superpowers/specs/2026-11-17-onboarding-intake-design.md`.
+- Formats: PDF, DOCX, ODT, RTF, HTML, TXT, MD. No OCR. Bank statements are skipped (they have their own import).
+- Resume may propose name, emails, phones, location, links, languages; never date of birth or addresses. A flagged job (for example no start date) is not editable on the card in v1: reject it and give the fix in chat.
+- Uploaded files are deleted when the job ends. The chat agent cannot see or approve intake cards.
+- Feature flag `intake`, default off.

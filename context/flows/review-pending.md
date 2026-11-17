@@ -1,6 +1,6 @@
 # Flow: review pending
 
-**Summary.** `ka pending` lists queued memories; `approve <id>` writes one to `memory.yaml` as a validated git commit, `reject <id>` discards it. A contradiction approval adds the new entry first, then retires the old one with `replaced_by` pointing at the new id.
+**Summary.** `ka pending` lists queued memories and intake cards (`approve ID` applies an intake card's selected lines as one commit, see [intake.md](intake.md)); `approve <id>` writes one to `memory.yaml` as a validated git commit, `reject <id>` discards it. A contradiction approval adds the new entry first, then retires the old one with `replaced_by` pointing at the new id.
 
 ```mermaid
 flowchart LR

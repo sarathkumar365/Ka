@@ -28,13 +28,14 @@ class SPAStatic(StaticFiles):
             raise
 
 
+UPLOAD_LIMIT = 5 * 10 * 1024 * 1024 + 1024 * 1024  # five files of 10 MB plus form overhead
 UI_DIST = Path(__file__).resolve().parents[2] / "ui" / "dist"
 
 
 def create_app(
     cfg: Config, adapter_factory: Callable[[], Adapter], approval_timeout: float = 600.0
 ) -> FastAPI:
-    from . import activity, chat, conversations, pending, settings
+    from . import activity, chat, conversations, intake, pending, settings
     from .approvals import ApprovalBroker
 
     app = FastAPI(title="Ka", docs_url=None, redoc_url=None)
@@ -50,7 +51,20 @@ def create_app(
             return JSONResponse({"detail": "cross-site request refused"}, status_code=403)
         return await call_next(request)
 
-    Db(cfg.db_path).conn.close()  # create the schema once; request connections skip it
+    @app.middleware("http")
+    async def cap_upload_size(request, call_next):
+        # Starlette spools a multipart body to disk before the handler runs, so refuse early.
+        if request.url.path == "/api/intake/documents" and request.method == "POST":
+            length = request.headers.get("content-length")
+            if length is None:
+                return JSONResponse({"detail": "content-length required"}, status_code=411)
+            if int(length) > UPLOAD_LIMIT:
+                return JSONResponse({"detail": "upload is too large"}, status_code=413)
+        return await call_next(request)
+
+    boot = Db(cfg.db_path)  # create the schema once; request connections skip it
+    boot.fail_interrupted_intake_jobs()  # a restart killed any running job's thread
+    boot.conn.close()
     app.state.cfg = cfg
     app.state.adapter_factory = adapter_factory
     app.state.broker = ApprovalBroker()
@@ -58,7 +72,7 @@ def create_app(
     app.state.running = set()
     app.state.lock = threading.Lock()
     app.state.pending_lock = threading.Lock()
-    for module in (conversations, pending, activity, settings, chat):
+    for module in (conversations, pending, activity, settings, chat, intake):
         app.include_router(module.router, prefix="/api")
     if UI_DIST.is_dir():
         app.mount("/", SPAStatic(directory=UI_DIST, html=True), name="ui")

@@ -1,6 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, keys } from '../../lib/api'
 import { streamChat } from '../../lib/stream'
 import { ApprovalCard } from './ApprovalCard'
@@ -21,6 +21,7 @@ export function ChatPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
+  const { data: settings } = useQuery({ queryKey: keys.settings, queryFn: api.settings })
   const [state, dispatch] = useReducer(reduce, initialState)
   const [loading, setLoading] = useState(false) // history of the opened chat is on its way
   const abort = useRef<AbortController | null>(null)
@@ -130,6 +131,11 @@ export function ChatPage() {
       {empty && !busy && (
         <div className="empty">
           <div style={{ color: 'var(--t2)' }}>Ask about your profile, your career or your money.</div>
+          {settings?.flags.intake && (
+            <Link to="/onboarding" className="sub" style={{ color: 'var(--lapis-hi)' }}>
+              Set up Ka with your resume
+            </Link>
+          )}
           <div className="row" style={{ flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
             {PROMPTS.map((p) => (
               <button key={p} className="chip" onClick={() => send(p)}>

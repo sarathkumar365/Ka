@@ -46,7 +46,7 @@ def _transcript(messages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _parse(text: str) -> list[dict]:
+def parse_items(text: str) -> list[dict]:
     start, end = text.find("["), text.rfind("]")
     if start < 0 or end < start:
         return []
@@ -76,7 +76,7 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
         except AdapterError as e:
             log.warning("extraction skipped for %s: %s", cid, e)
             continue
-        for item in _parse(reply.text or ""):
+        for item in parse_items(reply.text or ""):
             kind = item.get("type") if item.get("type") in TYPES else "fact"
             try:
                 result = queue_memory(db, data, item["text"], kind, item.get("replaces"), cid, now)

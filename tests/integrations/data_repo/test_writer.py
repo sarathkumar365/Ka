@@ -7,6 +7,7 @@ from server.integrations.data_repo.writer import (
     apply_change,
     dump_text,
     load_text,
+    plan_batch,
     plan_change,
 )
 from tests.conftest import FIXTURE, git
@@ -125,3 +126,39 @@ def test_apply_revalidates_whole_repo_after_a_hand_edit_elsewhere(repo):
         apply_change(repo, plan)
     assert (repo / "rules/merchants.yaml").read_text() == before
     assert git(repo, "status", "--porcelain", "--untracked-files=no") == ""
+
+
+NEW_JOB = {"company": "New Co", "start": "2030-01", "position": "x", "employment_type": "contract"}
+
+
+def test_batch_adds_job_and_highlights_as_one_commit(repo):
+    patches = [
+        Patch(target="job", op="add", fields=NEW_JOB),
+        Patch(target="highlight", op="add", parent="New Co|2030-01", fields={"text": "One"}),
+        Patch(target="highlight", op="add", parent="New Co|2030-01", fields={"text": "Two"}),
+    ]
+    before = int(git(repo, "rev-list", "--count", "HEAD"))
+    plan = plan_batch(repo, patches, "data: intake New Co")
+    apply_change(repo, plan)
+    assert int(git(repo, "rev-list", "--count", "HEAD")) == before + 1
+    job = next(j for j in load_data(repo).jobs.jobs if j.company == "New Co")
+    assert [h.id for h in job.highlights] == ["H-005", "H-006"]
+    assert plan.message == "data: intake New Co"
+
+
+def test_batch_with_one_bad_patch_changes_nothing(repo):
+    text = (repo / "jobs.yaml").read_text()
+    patches = [
+        Patch(target="job", op="add", fields=NEW_JOB),
+        Patch(
+            target="highlight",
+            op="add",
+            parent="New Co|2030-01",
+            fields={"text": "x", "domains": ["D-99"]},
+        ),
+    ]
+    with pytest.raises(ChangeError, match="D-99"):
+        plan_batch(repo, patches, "m")
+    assert (repo / "jobs.yaml").read_text() == text
+    with pytest.raises(ChangeError):
+        plan_batch(repo, [], "m")

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, keys } from '../../lib/api'
+import { Link } from 'react-router-dom'
 import { getTheme, setTheme } from '../../lib/theme'
 
 export function SettingsPage() {
@@ -50,6 +51,14 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+      {data?.flags.intake && (
+        <section>
+          <h2>More</h2>
+          <Link className="morerow" to="/onboarding">
+            <span>Go through setup again</span>
+          </Link>
+        </section>
+      )}
     </div>
   )
 }

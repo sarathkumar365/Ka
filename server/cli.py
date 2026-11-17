@@ -11,6 +11,7 @@ from server.finance.importer import ImportFailed, commit_import, prepare_import
 from server.finance.parser import StatementFormatError
 from server.finance.statements import list_statement_files
 from server.finance.store import CsvFinanceStore
+from server.intake.approve import approve_bundle, reject_bundle
 from server.integrations.data_repo.loader import DataRepoError, load_data
 from server.memory.extract import extract_memories
 from server.memory.pending import PendingError, approve_pending, reject_pending
@@ -100,6 +101,56 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _intake(args: argparse.Namespace) -> int:
+    import shutil
+    import tempfile
+
+    from server.intake.runner import run_documents_job, run_memory_job
+
+    load_env()
+    cfg = load_config()
+    if not cfg.flags.get("intake"):
+        print("error: flag intake is off in config.yaml")
+        return 2
+    if "default" not in cfg.models:
+        print("error: no models.default in config.yaml")
+        return 2
+    if not args.files and not args.memory:
+        print("error: give document files, or --memory FILE")
+        return 2
+    adapter = build_adapter(cfg.models["default"])
+    db = Db(cfg.db_path)
+    if db.running_intake_job():
+        print("error: another intake job is running")
+        return 1
+    jobs = []
+    if args.files:
+        job = db.new_intake_job("documents", datetime.now())
+        tmp = Path(tempfile.mkdtemp(prefix="ka-intake-"))
+        copies = []
+        for f in args.files:  # the runner deletes its inputs, so never hand it the originals
+            copies.append(Path(shutil.copy(f, tmp / Path(f).name)))
+        run_documents_job(job, copies, cfg, adapter)
+        jobs.append(job)
+    if args.memory:
+        job = db.new_intake_job("memory", datetime.now())
+        run_memory_job(job, Path(args.memory).read_text(), args.source, cfg, adapter)
+        jobs.append(job)
+    code = 0
+    for job in jobs:
+        got = db.get_intake_job(job)
+        if got.status == "failed":
+            print(f"failed: {got.message}")
+            code = 1
+            continue
+        print(f"queued {got.result['cards']} card(s)")
+        for w in got.result["warnings"]:
+            print(f"  warning: {w}")
+        for s in got.result["skipped"]:
+            print(f"  skipped: {s}")
+    return code
+
+
 def _extract(args: argparse.Namespace) -> int:
     load_env()
     cfg = load_config()
@@ -129,15 +180,28 @@ def _pending(args: argparse.Namespace) -> int:
         old = {e.id: e.text for e in load_data(cfg.data_repo).memory.entries}
         for item in db.list_pending():
             p = item.payload
+            if item.kind == "bundle":
+                print(
+                    f"{item.id:>3}  [{p['section']}] {p['title']}"
+                    + (f"  BLOCKED: {p['blocked']}" if p.get("blocked") else "")
+                )
+                for it in p["items"]:
+                    print(f"       - {it['label']}  ({it['detail']})")
+                continue
             print(f"{item.id:>3}  [{p['type']}] {p['text']}")
             if p.get("replaces"):
                 print(f"     replaces {p['replaces']}: {old.get(p['replaces'], '?')}")
         return 0
     try:
+        item = db.get_pending(args.id)
+        bundle = item is not None and item.kind == "bundle"
         if args.action == "approve":
-            print(approve_pending(args.id, cfg.data_repo, db, date.today()))
+            if bundle:
+                print(approve_bundle(args.id, None, cfg.data_repo, db, date.today()))
+            else:
+                print(approve_pending(args.id, cfg.data_repo, db, date.today()))
         else:
-            reject_pending(args.id, db)
+            reject_bundle(args.id, db) if bundle else reject_pending(args.id, db)
             print(f"rejected {args.id}")
     except PendingError as e:
         print(f"error: {e}")
@@ -161,6 +225,11 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="run the web UI on localhost")
     serve.add_argument("--port", type=int, default=8000)
     serve.set_defaults(func=_serve)
+    intake = sub.add_parser("intake", help="read a resume or pasted memory into pending cards")
+    intake.add_argument("files", nargs="*", help="resume and other documents")
+    intake.add_argument("--memory", help="a text file with another assistant's memory export")
+    intake.add_argument("--source", default="assistant", help="name of that assistant")
+    intake.set_defaults(func=_intake)
     ext = sub.add_parser("extract", help="queue new memories from a day's chats")
     ext.add_argument("--date", help="YYYY-MM-DD, default today")
     ext.add_argument("--local", action="store_true")

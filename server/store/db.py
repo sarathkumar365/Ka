@@ -25,6 +25,11 @@ create table if not exists pending (
     kind text not null, payload text not null, source text, norm_key text,
     status text not null default 'pending', created_at text not null
 );
+create table if not exists intake_jobs (
+    id text primary key, kind text not null, status text not null,
+    step text not null default '', message text not null default '',
+    result text not null default '{}', created_at text not null
+);
 create table if not exists activity (
     id integer primary key autoincrement,
     at text not null, kind text not null, text text not null, conversation_id text
@@ -66,6 +71,17 @@ class ActivityRow:
     kind: str
     text: str
     conversation_id: str | None
+
+
+@dataclass
+class IntakeJob:
+    id: str
+    kind: str
+    status: str
+    step: str
+    message: str
+    result: dict
+    created_at: str
 
 
 class Db:
@@ -189,6 +205,57 @@ class Db:
             (limit,),
         ).fetchall()
         return [ActivityRow(*r) for r in rows]
+
+    def new_intake_job(self, kind: Literal["documents", "memory"], now: datetime) -> str:
+        job_id = f"I-{now:%Y%m%d}-{secrets.token_hex(2)}"
+        with self.conn:
+            self.conn.execute(
+                "insert into intake_jobs (id, kind, status, created_at) values (?,?,?,?)",
+                (job_id, kind, "queued", now.isoformat()),
+            )
+        return job_id
+
+    def update_intake_job(
+        self,
+        job_id: str,
+        *,
+        status: str | None = None,
+        step: str | None = None,
+        message: str | None = None,
+        result: dict | None = None,
+    ) -> None:
+        sets = {"status": status, "step": step, "message": message}
+        if result is not None:
+            sets["result"] = json.dumps(result)
+        sets = {k: v for k, v in sets.items() if v is not None}
+        if not sets:
+            return
+        with self.conn:
+            self.conn.execute(
+                f"update intake_jobs set {', '.join(f'{k}=?' for k in sets)} where id=?",
+                (*sets.values(), job_id),
+            )
+
+    def get_intake_job(self, job_id: str) -> IntakeJob | None:
+        r = self.conn.execute(
+            "select id, kind, status, step, message, result, created_at from intake_jobs where id=?",
+            (job_id,),
+        ).fetchone()
+        return IntakeJob(r[0], r[1], r[2], r[3], r[4], json.loads(r[5]), r[6]) if r else None
+
+    def running_intake_job(self) -> str | None:
+        r = self.conn.execute(
+            "select id from intake_jobs where status in ('queued','running') limit 1"
+        ).fetchone()
+        return r[0] if r else None
+
+    def fail_interrupted_intake_jobs(self) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "update intake_jobs set status='failed', message='interrupted'"
+                " where status in ('queued','running')"
+            )
+        return cur.rowcount
 
     def pending_exists(self, kind: str, key: str) -> bool:
         row = self.conn.execute(

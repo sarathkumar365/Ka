@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api, keys, type PendingRow } from '../../lib/api'
+import { api, keys, type MemoryRow } from '../../lib/api'
+import { BundleCard } from './BundleCard'
 
-const KIND: Record<PendingRow['type'], string> = { fact: 'Memory fact', preference: 'Preference', rule: 'Rule' }
+const KIND: Record<MemoryRow['type'], string> = { fact: 'Memory fact', preference: 'Preference', rule: 'Rule' }
 
-function Card({ item }: { item: PendingRow }) {
+function Card({ item }: { item: MemoryRow }) {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const done = () => qc.invalidateQueries({ queryKey: keys.pending })
@@ -61,9 +62,7 @@ export function PendingPage() {
           <p className="sub">Ka will ask here when it learns something new.</p>
         </div>
       )}
-      {data.map((i) => (
-        <Card key={i.id} item={i} />
-      ))}
+      {data.map((i) => (i.kind === 'bundle' ? <BundleCard key={i.id} card={i} /> : <Card key={i.id} item={i} />))}
     </div>
   )
 }

@@ -191,9 +191,7 @@ def _edit(ed: _Editor, p: Patch) -> str:
     return p.key
 
 
-def plan_change(root: Path, patch: Patch) -> ChangePlan:
-    ed = _Editor(root)
-    key = _edit(ed, patch)
+def _finish_plan(root: Path, ed: _Editor, message: str, key: str) -> ChangePlan:
     new = {path: dump_text(doc) for path, doc in ed.docs.items()}
     changed = {path: (ed.old[path], text) for path, text in new.items() if text != ed.old[path]}
     if not changed:
@@ -216,9 +214,22 @@ def plan_change(root: Path, patch: Patch) -> ChangePlan:
         )
         for path, (old, text) in sorted(changed.items())
     )
-    return ChangePlan(
-        files=changed, diff=diff, message=f"data: {patch.op} {patch.target} {key}", key=key
-    )
+    return ChangePlan(files=changed, diff=diff, message=message, key=key)
+
+
+def plan_change(root: Path, patch: Patch) -> ChangePlan:
+    ed = _Editor(root)
+    key = _edit(ed, patch)
+    return _finish_plan(root, ed, f"data: {patch.op} {patch.target} {key}", key)
+
+
+def plan_batch(root: Path, patches: list[Patch], message: str) -> ChangePlan:
+    """Several patches, applied in order on one in-memory copy, validated once, committed once."""
+    if not patches:
+        raise ChangeError("nothing to change")
+    ed = _Editor(root)
+    keys = [_edit(ed, p) for p in patches]
+    return _finish_plan(root, ed, message, ",".join(keys))
 
 
 def apply_change(root: Path, plan: ChangePlan) -> str:

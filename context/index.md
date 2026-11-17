@@ -21,3 +21,4 @@
 | activity | `flows/activity.md` | `server/api/{activity,describe}.py`, `ui/src/features/activity/*` |
 | settings | `flows/settings.md` | `server/api/settings.py`, `ui/src/features/settings/*` |
 | pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py` |
+| intake | `flows/intake.md` | `server/intake/*`, `server/api/intake.py`, `ui/src/features/onboarding/*` |
