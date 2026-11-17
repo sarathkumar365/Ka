@@ -98,6 +98,7 @@ def chat(body: ChatBody, request: Request):
         try:
             db = Db(cfg.db_path)
             adapter = state.adapter_factory()
+            private = state.private_factory() if state.private_factory else None
             ctx = ToolContext(config=cfg, store=CsvFinanceStore(cfg.finance_dir), db=db)
             run_turn(
                 body.text,
@@ -107,6 +108,7 @@ def chat(body: ChatBody, request: Request):
                 ctx=ctx,
                 approve=approve,
                 on_event=on_event,
+                private_adapter=private,
             )
         except AdapterError as e:
             if db:

@@ -29,6 +29,7 @@ def chat_loop(
     ask: Callable[[str], str] = input,
     out: Callable[[str], None] = print,
     resume: str | None = None,
+    private_adapter: Adapter | None = None,
 ) -> None:
     db = Db(cfg.db_path)
     if resume and not db.conversation_exists(resume):
@@ -60,6 +61,7 @@ def chat_loop(
                 ctx=ctx,
                 approve=lambda p: terminal_approve(p, ask, out),
                 on_event=show,
+                private_adapter=private_adapter,
             )
         except AdapterError as e:
             out(f"error: {e}")

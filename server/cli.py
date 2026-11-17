@@ -3,7 +3,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from server.agent.adapters import AdapterError, build_adapter
+from server.agent.adapters import AdapterError, build_adapter, build_private_adapter
 from server.chat import chat_loop
 from server.config import ConfigError, load_config
 from server.env import load_env
@@ -81,10 +81,11 @@ def _queue_suggestions(cfg, store, merchants: list[str], types: list[str]) -> in
         print("nothing to suggest")
         return 0
     try:
-        adapter = build_adapter(cfg.models["default"])
+        # merchant texts are finance data: the private chain when routing is on
+        adapter = _private_adapter(cfg) or build_adapter(cfg.models["default"])
         cats = suggest_categories(merchants, load_data(cfg.data_repo), adapter)
         tags = suggest_types(types, adapter)
-    except AdapterError as e:
+    except (AdapterError, ConfigError) as e:
         print(f"suggestions skipped: {e}")
         return 1
     n = queue_suggestions(db, cats, tags, "import", datetime.now())
@@ -110,6 +111,18 @@ def _statements(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _private_adapter(cfg):
+    """The private model chain when routing is on; raises ConfigError if it cannot be built."""
+    if not cfg.flags.get("private_routing"):
+        return None
+    if not cfg.private_models:
+        raise ConfigError("flag private_routing is on but private_models is empty in config.yaml")
+    try:
+        return build_private_adapter(cfg)
+    except AdapterError as e:
+        raise ConfigError(f"private model: {e}") from e
+
+
 def _chat(args: argparse.Namespace) -> int:
     load_env()
     cfg = load_config()
@@ -117,7 +130,12 @@ def _chat(args: argparse.Namespace) -> int:
     if which not in cfg.models:
         print(f"error: no models.{which} in config.yaml")
         return 2
-    chat_loop(cfg, build_adapter(cfg.models[which]), resume=args.resume)
+    try:
+        private = _private_adapter(cfg)
+    except ConfigError as e:
+        print(f"error: {e}")
+        return 2
+    chat_loop(cfg, build_adapter(cfg.models[which]), resume=args.resume, private_adapter=private)
     return 0
 
 
@@ -136,7 +154,17 @@ def _serve(args: argparse.Namespace) -> int:
         return 2
     model = cfg.models["default"]
     build_adapter(model)  # fail now, not on the first message, if the key is missing
-    app = create_app(cfg, lambda: build_adapter(model), start_scheduler=True)
+    try:
+        private = _private_adapter(cfg)
+    except ConfigError as e:
+        print(f"error: {e}")
+        return 2
+    app = create_app(
+        cfg,
+        lambda: build_adapter(model),
+        start_scheduler=True,
+        private_factory=(lambda: build_private_adapter(cfg)) if private else None,
+    )
     uvicorn.run(app, host="127.0.0.1", port=args.port)
     return 0
 
@@ -209,8 +237,9 @@ def _extract(args: argparse.Namespace) -> int:
             load_data(cfg.data_repo),
             build_adapter(cfg.models[which]),
             datetime.now(),
+            private_adapter=_private_adapter(cfg),
         )
-    except AdapterError as e:
+    except (AdapterError, ConfigError) as e:
         print(f"error: {e}")
         return 1
     print(f"queued {n} item(s) from {day}")

@@ -343,3 +343,10 @@ The coding agent builds against mocks and synthetic data until each item is read
 - Approving a categories card commits the merchant rules, then fills the category on stored rows that have none. A category is never overwritten, and own-account rows never get one. New type rules apply from the next import only, because re-tagging would change totals already reported.
 - Nightly extraction runs inside `ka serve` (APScheduler, 03:00 local, flag `nightly_extraction`). At start it catches up missed days, at most 7, and records each finished day in `app_state`.
 - Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-categories-scheduler-evals.md`.
+
+## Private routing addendum (2026-11-17)
+
+- Finance conversations go to a private model chain (`private_models` in `config.yaml`, flag `private_routing`): today one OpenRouter model restricted to zero-data-retention providers (`zdr: true`); Ollama can be added later as the first entry with no code change. The chain never falls back to the default model.
+- A conversation becomes private the moment a finance tool runs in it (or a search returns account, merchant or private-chat data), and stays private. Nightly extraction and category suggestions use the chain too; a memory extracted from a private chat may not contain digits.
+- `private_models` accepts only Ollama, or OpenRouter with `zdr: true`.
+- Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-private-routing.md`.

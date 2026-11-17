@@ -49,6 +49,7 @@ def catch_up_extraction(
     adapter_factory: Callable[[], Adapter],
     today: date,
     extract=None,
+    private_factory: Callable[[], Adapter] | None = None,
 ) -> list[date]:
     """Extract every day from the last one done up to yesterday, at most MAX_CATCH_UP days."""
     last = db.get_state(LAST_DAY)
@@ -60,15 +61,19 @@ def catch_up_extraction(
         return []
     extract = extract or extract_memories
     adapter = adapter_factory()
+    private = private_factory() if private_factory else None
     data = load_data(cfg.data_repo)
     for day in days:
-        extract(day, db, data, adapter, datetime.now())
+        extract(day, db, data, adapter, datetime.now(), private_adapter=private)
         db.set_state(LAST_DAY, day.isoformat())
     return days
 
 
 def nightly_job(
-    cfg: Config, adapter_factory: Callable[[], Adapter], today: Callable[[], date] = date.today
+    cfg: Config,
+    adapter_factory: Callable[[], Adapter],
+    today: Callable[[], date] = date.today,
+    private_factory: Callable[[], Adapter] | None = None,
 ) -> ScheduledJob:
     busy = threading.Lock()  # the start-up catch-up and the 03:00 run share it
 
@@ -78,7 +83,9 @@ def nightly_job(
         db = None
         try:
             db = Db(cfg.db_path)
-            days = catch_up_extraction(cfg, db, adapter_factory, today())
+            days = catch_up_extraction(
+                cfg, db, adapter_factory, today(), private_factory=private_factory
+            )
             if days:
                 db.add_activity("extraction", f"extracted {len(days)} day(s)", datetime.now())
         except Exception as e:  # a background job must never take the server down

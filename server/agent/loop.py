@@ -61,8 +61,11 @@ def run_turn(
     approve: Callable[[PendingWrite], bool],
     on_event: Callable[[Event], None] = lambda e: None,
     now: Callable[[], datetime] = datetime.now,
+    private_adapter: Adapter | None = None,
 ) -> str:
     ctx.db, ctx.conversation_id = db, conv_id
+    if private_adapter is not None and db.is_private(conv_id):
+        adapter = private_adapter
     system = {"role": "system", "content": build_system_prompt(ctx.data, ctx.today())}
     specs = tool_specs(REGISTRY)
     db.add_message(conv_id, {"role": "user", "content": user_text}, now())
@@ -94,6 +97,12 @@ def run_turn(
                 used += 1
                 last = f"{c.name} {c.arguments}"
                 result = _execute(c, ctx, approve, on_event, user_text)
+                tool = REGISTRY.get(c.name)
+                if private_adapter is not None and tool is not None and tool.private:
+                    db.mark_private(conv_id)
+                if private_adapter is not None and db.is_private(conv_id):
+                    # finance data is now in the history: nothing more goes to the default model
+                    adapter = private_adapter
                 on_event(Event("tool_result", {"name": c.name, "result": result}))
             db.add_message(
                 conv_id, {"role": "tool", "tool_call_id": c.id, "content": result}, now()

@@ -37,12 +37,13 @@ def create_app(
     adapter_factory: Callable[[], Adapter],
     approval_timeout: float = 600.0,
     start_scheduler: bool = False,
+    private_factory: Callable[[], Adapter] | None = None,
 ) -> FastAPI:
     from . import activity, chat, conversations, intake, onboarding, pending, settings
     from .approvals import ApprovalBroker
 
     scheduled = start_scheduler and cfg.flags.get("nightly_extraction")
-    lifespan = _scheduler_lifespan(cfg, adapter_factory) if scheduled else None
+    lifespan = _scheduler_lifespan(cfg, adapter_factory, private_factory) if scheduled else None
     app = FastAPI(title="Ka", docs_url=None, redoc_url=None, lifespan=lifespan)
     allowed = {"127.0.0.1", "localhost", *cfg.ui_hosts}
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=sorted(allowed))
@@ -72,6 +73,7 @@ def create_app(
     boot.conn.close()
     app.state.cfg = cfg
     app.state.adapter_factory = adapter_factory
+    app.state.private_factory = private_factory
     app.state.broker = ApprovalBroker()
     app.state.approval_timeout = approval_timeout
     app.state.running = set()
@@ -84,12 +86,16 @@ def create_app(
     return app
 
 
-def _scheduler_lifespan(cfg: Config, adapter_factory: Callable[[], Adapter]):
+def _scheduler_lifespan(
+    cfg: Config,
+    adapter_factory: Callable[[], Adapter],
+    private_factory: Callable[[], Adapter] | None,
+):
     from contextlib import asynccontextmanager
 
     from server.scheduler import ScheduledJob, nightly_job, start_scheduler
 
-    nightly = nightly_job(cfg, adapter_factory)
+    nightly = nightly_job(cfg, adapter_factory, private_factory=private_factory)
     # The catch-up runs in the scheduler thread right after start, so a slow model never delays boot.
     jobs = [nightly, ScheduledJob("catch_up", {"trigger": "date"}, nightly.run)]
 

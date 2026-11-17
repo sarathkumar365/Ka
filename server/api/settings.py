@@ -11,5 +11,6 @@ router = APIRouter()
 def get_settings(cfg: Config = Depends(get_cfg)):
     return {
         "models": {k: {"provider": m.provider, "model": m.model} for k, m in cfg.models.items()},
+        "private_models": [{"provider": m.provider, "model": m.model} for m in cfg.private_models],
         "flags": cfg.flags,
     }

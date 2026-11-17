@@ -26,6 +26,12 @@ Owner types "relabel account A-01". The model calls `propose_change`; the loop e
 - **Answer arrives whole.** Adapters do not stream tokens. The UI types the answer out; reduced-motion users get it instantly.
 - **No retry on stream errors.** A retry would send the owner's message twice.
 
+## Private routing
+
+With flag `private_routing` on, every tool registered with `private=True` (finance tools and `import_statement`) marks the conversation private in `ka.db` (`private_conversations`) the moment it runs. Tools whose result only sometimes holds finance data mark it themselves through `ctx.mark_private()`: `search` when a hit is in `accounts.yaml` or `rules/merchants.yaml`, `search_conversations` when a snippet comes from a private chat, and `propose_change` on accounts, merchant rules or type rules. `run_turn` then sends every later model call of that turn, and of every later turn in that conversation, to the private chain (`ChainAdapter` over `private_models`: OpenRouter with `zdr: true` today, Ollama first later). The chain tries its entries in order and never falls back to `models.default`; when all fail, the turn ends with `private model unavailable: ...`. The first question of a conversation still goes to the default model, because nothing private is known yet. `private_models` only accepts Ollama, or OpenRouter with `zdr: true`; `only: [amazon-bedrock]` pins OpenRouter to named providers (a live check showed `zdr` alone routing Claude Haiku to Google, whose endpoint may keep data under Safety retention).
+
+- **Why per conversation, not per call.** Once amounts are in the history, every later call resends them; switching back would leak them.
+
 ## Failure cases
 
 | Case | Result |
@@ -34,6 +40,7 @@ Owner types "relabel account A-01". The model calls `propose_change`; the loop e
 | Approval answered twice | second call gets 404; change applied once |
 | Provider error (no credits, timeout) | `error` frame with the readable message; user message stays saved |
 | Second turn in a running conversation | 409 |
+| Private chain down | `error` frame `private model unavailable: ...`; default model not called |
 | Unexpected exception | `error` frame "Something went wrong."; details stay in the server log |
 
 Source: `server/api/{chat,approvals,describe}.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts`

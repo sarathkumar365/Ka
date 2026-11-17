@@ -47,6 +47,7 @@ class NoArgs(KaModel):
     "Spending, income and debt payments for an inclusive date range. "
     "Own-account transfers are never counted as spending.",
     PeriodArgs,
+    private=True,
 )
 def finance_summary(args: PeriodArgs, ctx: ToolContext):
     return summarise(ctx.store.transactions(), args.start, args.end)
@@ -58,6 +59,7 @@ def finance_summary(args: PeriodArgs, ctx: ToolContext):
     "statement's period. Call it when the period is unclear or a summary comes back empty. "
     "A statement can straddle two months, so a month may be only partly covered.",
     NoArgs,
+    private=True,
 )
 def finance_coverage(args: NoArgs, ctx: ToolContext):
     return coverage(ctx.store.transactions(), ctx.store.statements())
@@ -67,6 +69,7 @@ def finance_coverage(args: NoArgs, ctx: ToolContext):
     "search_transactions",
     "Find transactions by text (case and spaces ignored), date range, tag, category or amount.",
     SearchArgs,
+    private=True,
 )
 def search_transactions(args: SearchArgs, ctx: ToolContext):
     found = find_transactions(
@@ -86,12 +89,17 @@ def search_transactions(args: SearchArgs, ctx: ToolContext):
     }
 
 
-@tool("sum_transactions", "Exact signed total of transactions by row id.", SumArgs)
+@tool("sum_transactions", "Exact signed total of transactions by row id.", SumArgs, private=True)
 def sum_transactions(args: SumArgs, ctx: ToolContext):
     total, missing = sum_rows(ctx.store.transactions(), args.ids)
     return {"total": total, "count": len(args.ids) - len(missing), "missing": missing}
 
 
-@tool("list_statements", "List statement PDFs and whether each is already imported.", NoArgs)
+@tool(
+    "list_statements",
+    "List statement PDFs and whether each is already imported.",
+    NoArgs,
+    private=True,
+)
 def list_statements(args: NoArgs, ctx: ToolContext):
     return {"files": list_statement_files(ctx.config, ctx.store)}

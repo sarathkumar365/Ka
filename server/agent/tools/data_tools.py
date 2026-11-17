@@ -56,6 +56,9 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value)
 
 
+FINANCE_FILES = {"accounts.yaml", "rules/merchants.yaml"}
+
+
 def _records(data: KaData) -> list[tuple[str, str, str, str | None]]:
     """(file, id, searchable text, job key for a highlight so the answer can name the employer)."""
 
@@ -96,4 +99,6 @@ def search(args: SearchArgs, ctx: ToolContext):
         for f, i, t, j in _records(ctx.data)
         if needle in t.casefold()
     ]
+    if any(h["file"] in FINANCE_FILES for h in hits[: args.limit]):
+        ctx.mark_private()  # account numbers and merchant rules are finance data
     return {"hits": hits[: args.limit], "truncated": len(hits) > args.limit}

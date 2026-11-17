@@ -30,8 +30,11 @@ class OpenAICompatAdapter:
         client=None,
         sleep: Callable[[float], None] = time.sleep,
         max_tries: int = 3,
+        zdr: bool = False,
+        only: list[str] | None = None,
     ) -> None:
-        self.model, self.sleep, self.max_tries = model, sleep, max_tries
+        self.model, self.sleep, self.max_tries, self.zdr = model, sleep, max_tries, zdr
+        self.only = only or []
         self.client = client or openai.OpenAI(
             base_url=base_url, api_key=api_key, timeout=60, max_retries=0
         )
@@ -40,6 +43,13 @@ class OpenAICompatAdapter:
         kwargs = {"model": self.model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
+        provider: dict = {}
+        if self.zdr:
+            provider |= {"zdr": True, "data_collection": "deny"}
+        if self.only:
+            provider["only"] = self.only
+        if provider:
+            kwargs["extra_body"] = {"provider": provider}
         for attempt in range(self.max_tries):
             try:
                 resp = self.client.chat.completions.create(**kwargs)
@@ -77,5 +87,7 @@ def build_adapter(cfg: ModelConfig, env: Mapping[str, str] = os.environ) -> Open
         key = env.get("OPENROUTER_API_KEY")
         if not key:
             raise AdapterError("OPENROUTER_API_KEY not set")
-        return OpenAICompatAdapter(cfg.model, cfg.base_url or OPENROUTER_URL, key)
+        return OpenAICompatAdapter(
+            cfg.model, cfg.base_url or OPENROUTER_URL, key, zdr=cfg.zdr, only=cfg.only
+        )
     return OpenAICompatAdapter(cfg.model, cfg.base_url or "http://localhost:11434/v1", "ollama")

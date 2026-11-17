@@ -25,6 +25,7 @@ create table if not exists pending (
     kind text not null, payload text not null, source text, norm_key text,
     status text not null default 'pending', created_at text not null
 );
+create table if not exists private_conversations (id text primary key);
 create table if not exists app_state (key text primary key, value text not null);
 create table if not exists intake_jobs (
     id text primary key, kind text not null, status text not null,
@@ -101,6 +102,16 @@ class Db:
         with self.conn:
             self.conn.execute("insert into conversations values (?, ?)", (cid, now.isoformat()))
         return cid
+
+    def is_private(self, conv_id: str) -> bool:
+        row = self.conn.execute(
+            "select 1 from private_conversations where id=?", (conv_id,)
+        ).fetchone()
+        return row is not None
+
+    def mark_private(self, conv_id: str) -> None:
+        with self.conn:
+            self.conn.execute("insert or ignore into private_conversations values (?)", (conv_id,))
 
     def conversation_exists(self, conv_id: str) -> bool:
         row = self.conn.execute("select 1 from conversations where id=?", (conv_id,)).fetchone()

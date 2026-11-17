@@ -132,3 +132,89 @@ def test_remember_is_refused_unless_the_owner_asked_to_remember(ctx):
     ok = Reply(tool_calls=[call("remember", json.dumps({"text": "likes tea"}))])
     _, msgs, _ = ask(ctx, [ok, Reply(text="saved")], text="Please remember I like tea")
     assert "commit" in tool_texts(msgs)[0]
+
+
+def _private_turn(ctx, db, cid, default, private, text="spend?"):
+    return run_turn(
+        text,
+        conv_id=cid,
+        db=db,
+        adapter=default,
+        private_adapter=private,
+        ctx=ctx,
+        approve=lambda p: True,
+        now=NOW,
+    )
+
+
+def test_switches_within_turn(ctx, tmp_path):
+    db = Db(tmp_path / "k.db")
+    cid = db.new_conversation(NOW())
+    default = FakeAdapter([Reply(tool_calls=[call("finance_coverage")])])
+    private = FakeAdapter([Reply(text="You spent 10.")])
+    assert _private_turn(ctx, db, cid, default, private) == "You spent 10."
+    assert len(default.calls) == 1 and len(private.calls) == 1
+
+
+def test_private_persists_across_turns(ctx, tmp_path):
+    db = Db(tmp_path / "k.db")
+    cid = db.new_conversation(NOW())
+    _private_turn(
+        ctx,
+        db,
+        cid,
+        FakeAdapter([Reply(tool_calls=[call("finance_coverage")])]),
+        FakeAdapter([Reply(text="ok")]),
+    )
+    again = Db(tmp_path / "k.db")
+    default, private = FakeAdapter([]), FakeAdapter([Reply(text="still private")])
+    assert _private_turn(ctx, again, cid, default, private, "and now?") == "still private"
+    assert default.calls == []
+
+
+def test_chain_down_never_uses_default(ctx, tmp_path):
+    from server.agent.adapters import ChainAdapter
+
+    class Down:
+        def complete(self, messages, tools):
+            raise AdapterError("down")
+
+    db = Db(tmp_path / "k.db")
+    cid = db.new_conversation(NOW())
+    default = FakeAdapter([Reply(tool_calls=[call("finance_coverage")])])
+    with pytest.raises(AdapterError, match="private model unavailable"):
+        _private_turn(ctx, db, cid, default, ChainAdapter([Down()]))
+    assert len(default.calls) == 1
+
+
+def test_search_hit_from_private_chat_moves_caller_private(ctx, tmp_path):
+    db = Db(tmp_path / "k.db")
+    a = db.new_conversation(NOW())
+    db.add_message(a, {"role": "assistant", "content": "groceries cost 812.40"}, NOW())
+    db.mark_private(a)
+    b = db.new_conversation(NOW())
+    default = FakeAdapter(
+        [Reply(tool_calls=[call("search_conversations", '{"query": "groceries"}')])]
+    )
+    private = FakeAdapter([Reply(text="ok")])
+    _private_turn(ctx, db, b, default, private, "groceries?")
+    assert len(default.calls) == 1 and len(private.calls) == 1 and db.is_private(b)
+
+
+def test_search_hit_in_finance_files_moves_private(ctx, tmp_path):
+    db = Db(tmp_path / "k.db")
+    cid = db.new_conversation(NOW())
+    default = FakeAdapter([Reply(tool_calls=[call("search", '{"query": "corner"}')])])
+    private = FakeAdapter([Reply(text="ok")])
+    _private_turn(ctx, db, cid, default, private, "corner?")
+    assert len(private.calls) == 1 and db.is_private(cid)
+
+
+def test_plain_search_stays_on_default(ctx, tmp_path):
+    db = Db(tmp_path / "k.db")
+    cid = db.new_conversation(NOW())
+    default = FakeAdapter(
+        [Reply(tool_calls=[call("search", '{"query": "react"}')]), Reply(text="H-003")]
+    )
+    _private_turn(ctx, db, cid, default, FakeAdapter([]), "react?")
+    assert not db.is_private(cid)

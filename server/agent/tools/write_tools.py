@@ -23,6 +23,9 @@ class ImportArgs(KaModel):
     file_name: str
 
 
+FINANCE_TARGETS = {"account", "merchant_rule", "transaction_type"}
+
+
 @tool(
     "propose_change",
     "Propose an edit to personal data (profile, jobs, highlights, guardrails, accounts, ...). "
@@ -33,6 +36,8 @@ class ImportArgs(KaModel):
 )
 def propose_change(args: Patch, ctx: ToolContext):
     root = ctx.config.data_repo
+    if args.target in FINANCE_TARGETS:
+        ctx.mark_private()  # the diff shows account or merchant data
     try:
         plan = plan_change(root, args)
     except ChangeError as e:
@@ -81,6 +86,7 @@ def remember(args: RememberArgs, ctx: ToolContext):
     ImportArgs,
     mode="WRITE",
     approval=True,
+    private=True,
 )
 def import_statement(args: ImportArgs, ctx: ToolContext):
     name = args.file_name

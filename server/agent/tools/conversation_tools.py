@@ -22,4 +22,7 @@ class ConversationSearchArgs(KaModel):
 def search_conversations(args: ConversationSearchArgs, ctx: ToolContext):
     if ctx.db is None:
         raise ToolError("conversation store not available")
-    return {"hits": [asdict(h) for h in ctx.db.search(args.query, args.limit)]}
+    hits = ctx.db.search(args.query, args.limit)
+    if any(ctx.db.is_private(h.conversation_id) for h in hits):
+        ctx.mark_private()  # snippets from a finance chat carry its amounts
+    return {"hits": [asdict(h) for h in hits]}

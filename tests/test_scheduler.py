@@ -13,7 +13,7 @@ def test_catch_up_runs_each_missed_day_once(ctx):
     db.set_state(LAST_DAY, (TODAY - timedelta(days=3)).isoformat())
     days: list[date] = []
 
-    def extract(day, db, data, adapter, now):
+    def extract(day, db, data, adapter, now, **k):
         days.append(day)
         return 0
 
@@ -26,13 +26,13 @@ def test_first_run_and_long_gap_are_bounded(ctx):
     db = Db(":memory:")
     seen: list[date] = []
     catch_up_extraction(
-        ctx.config, db, lambda: object(), TODAY, extract=lambda d, *a: seen.append(d)
+        ctx.config, db, lambda: object(), TODAY, extract=lambda d, *a, **k: seen.append(d)
     )
     assert seen == [TODAY - timedelta(days=1)]
     db.set_state(LAST_DAY, (TODAY - timedelta(days=30)).isoformat())
     seen.clear()
     catch_up_extraction(
-        ctx.config, db, lambda: object(), TODAY, extract=lambda d, *a: seen.append(d)
+        ctx.config, db, lambda: object(), TODAY, extract=lambda d, *a, **k: seen.append(d)
     )
     assert len(seen) == 7 and seen[-1] == TODAY - timedelta(days=1)
 
@@ -100,7 +100,7 @@ def test_overlapping_runs_extract_each_day_once(ctx, monkeypatch):
     cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
     days: list = []
 
-    def slow(day, *a):
+    def slow(day, *a, **k):
         time.sleep(0.2)
         days.append(day)
 
@@ -134,6 +134,6 @@ def test_db_failure_does_not_disable_later_runs(ctx, monkeypatch):
     job.run()
     monkeypatch.setattr(sched, "Db", real)
     seen: list = []
-    monkeypatch.setattr(sched, "extract_memories", lambda d, *a: seen.append(d))
+    monkeypatch.setattr(sched, "extract_memories", lambda d, *a, **k: seen.append(d))
     job.run()
     assert seen == [TODAY - timedelta(days=1)]

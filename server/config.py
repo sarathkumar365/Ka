@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 from ruamel.yaml import YAML, YAMLError
 
 
@@ -16,6 +16,14 @@ class ModelConfig(BaseModel):
     provider: Literal["openai", "openrouter", "ollama"]
     model: str
     base_url: str | None = None
+    zdr: bool = False  # OpenRouter only: route to zero-data-retention providers
+    only: list[str] = []  # OpenRouter only: allowed provider slugs, e.g. ["amazon-bedrock"]
+
+    @model_validator(mode="after")
+    def _zdr_needs_openrouter(self):
+        if (self.zdr or self.only) and self.provider != "openrouter":
+            raise ValueError("zdr and only are OpenRouter options; use provider openrouter")
+        return self
 
 
 class Config(BaseModel):
@@ -24,7 +32,16 @@ class Config(BaseModel):
     data_repo: Path
     flags: dict[str, bool] = {}
     models: dict[str, ModelConfig] = {}
+    private_models: list[ModelConfig] = []  # tried in order for finance conversations
     ui_hosts: list[str] = []
+
+    @field_validator("private_models")
+    @classmethod
+    def _private_keeps_no_data(cls, v: list[ModelConfig]) -> list[ModelConfig]:
+        for m in v:
+            if m.provider == "openai" or (m.provider == "openrouter" and not m.zdr):
+                raise ValueError("private_models: use ollama, or openrouter with zdr: true")
+        return v
 
     @field_validator("data_repo")
     @classmethod

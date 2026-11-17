@@ -1,6 +1,6 @@
 # Flow: settings
 
-**Summary.** `GET /api/settings` returns the configured models (provider and model name) and feature flags from `config.yaml`. The screen is read-only; the theme toggle is stored in the browser.
+**Summary.** `GET /api/settings` returns the configured models and the private model chain (provider and model name only) and feature flags from `config.yaml`. The screen is read-only; the theme toggle is stored in the browser.
 
 ## Why this way
 

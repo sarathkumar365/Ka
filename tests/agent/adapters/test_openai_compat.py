@@ -33,6 +33,7 @@ class FakeClient:
 
     def _create(self, **kwargs):
         self.calls += 1
+        self.last = kwargs
         item = self.script.pop(0)
         if isinstance(item, Exception):
             raise item
@@ -112,3 +113,56 @@ def test_out_of_credits_fails_at_once_with_a_clear_message():
     with pytest.raises(AdapterError, match="no credits"):
         adapter([broke], sleeps).complete([], [])
     assert not sleeps
+
+
+def test_zdr_sends_provider_options():
+    client = FakeClient([good()])
+    a = OpenAICompatAdapter("m", None, "k", client=client, zdr=True)
+    a.complete([{"role": "user", "content": "x"}], [])
+    assert client.last["extra_body"] == {"provider": {"zdr": True, "data_collection": "deny"}}
+
+
+def test_chain_falls_through_then_fails():
+    from server.agent.adapters.chain import ChainAdapter
+
+    class Down:
+        def complete(self, messages, tools):
+            raise AdapterError("down")
+
+    ok = OpenAICompatAdapter("m", None, "k", client=FakeClient([good()]))
+    assert ChainAdapter([Down(), ok]).complete([], []).text == "hi"
+    with pytest.raises(AdapterError, match="private model unavailable"):
+        ChainAdapter([Down(), Down()]).complete([], [])
+
+
+def test_private_models_config_and_builder():
+    from server.agent.adapters.chain import build_private_adapter
+    from server.config import Config
+
+    cfg = Config(
+        data_repo=".",
+        private_models=[{"provider": "openrouter", "model": "m", "zdr": True}],
+    )
+    chain = build_private_adapter(cfg, env={"OPENROUTER_API_KEY": "k"})
+    assert chain.adapters[0].zdr is True
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [{"provider": "openai", "model": "m"}, {"provider": "openrouter", "model": "m"}],
+)
+def test_private_models_must_keep_no_data(entry):
+    from pydantic import ValidationError
+
+    from server.config import Config
+
+    with pytest.raises(ValidationError):
+        Config(data_repo=".", private_models=[entry])
+    Config(data_repo=".", private_models=[{"provider": "ollama", "model": "m"}])
+
+
+def test_only_pins_providers():
+    client = FakeClient([good()])
+    a = OpenAICompatAdapter("m", None, "k", client=client, zdr=True, only=["amazon-bedrock"])
+    a.complete([], [])
+    assert client.last["extra_body"]["provider"]["only"] == ["amazon-bedrock"]

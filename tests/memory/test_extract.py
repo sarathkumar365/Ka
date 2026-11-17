@@ -99,3 +99,35 @@ def test_retry_skips_conversations_already_extracted(ctx):
     second = Flaky(set())
     extract_memories(date(2031, 4, 9), db, data, second, at)
     assert second.calls == 1
+
+
+def test_private_conversation_routing_and_number_guard(ctx):
+    from datetime import date, datetime
+
+    from server.agent.adapters.base import Reply
+    from server.integrations.data_repo.loader import load_data
+    from server.memory.extract import extract_memories
+    from server.store.db import Db
+
+    db = Db(":memory:")
+    at = datetime(2031, 4, 9, 10, 0)
+    cid = db.new_conversation(at)
+    db.add_message(cid, {"role": "user", "content": "what did I spend"}, at)
+    db.mark_private(cid)
+
+    class Count:
+        def __init__(self):
+            self.calls = 0
+
+        def complete(self, messages, tools):
+            self.calls += 1
+            return Reply(
+                text='[{"type": "fact", "text": "Pays 2100 a month rent"},'
+                ' {"type": "fact", "text": "Prefers the credit union"}]'
+            )
+
+    default, private = Count(), Count()
+    data = load_data(ctx.config.data_repo)
+    n = extract_memories(date(2031, 4, 9), db, data, default, at, private_adapter=private)
+    assert default.calls == 0 and private.calls == 1
+    assert n == 1  # the item with a number from a private chat is dropped

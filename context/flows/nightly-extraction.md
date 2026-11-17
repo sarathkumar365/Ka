@@ -37,6 +37,7 @@ Scheduling: `server/scheduler.py` registers two APScheduler jobs from the lifesp
 | Provider down for a conversation | others continue; then `AdapterError`, so the day is not recorded and is retried. Chats that succeeded are listed in `app_state` `extraction_done:<day>` and skipped on the retry (and on a manual `ka extract` of that day), so no reworded duplicates |
 | Flag off | `ka extract` exits 2 with a message; no schedule |
 | Any failure in a scheduled run (key missing, provider down, data repo unreadable) | activity line `extraction failed: ...`, day not recorded, retried next run |
+| Private conversation (routing on) | extracted only by the private chain; an item containing a digit is dropped, because approved memories reach every system prompt |
 | Server off for weeks | only the last 7 days are extracted |
 
 Interview questions: [nightly-extraction.interview.md](nightly-extraction.interview.md)

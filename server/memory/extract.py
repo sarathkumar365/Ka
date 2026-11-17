@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import date, datetime
 
 from server.agent.adapters import Adapter, AdapterError
@@ -57,7 +58,14 @@ def parse_items(text: str) -> list[dict]:
     return [i for i in items if isinstance(i, dict) and isinstance(i.get("text"), str)]
 
 
-def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: datetime) -> int:
+def extract_memories(
+    day: date,
+    db: Db,
+    data: KaData,
+    adapter: Adapter,
+    now: datetime,
+    private_adapter: Adapter | None = None,
+) -> int:
     existing = (
         "\n".join(f"{e.id}: {e.text}" for e in data.memory.entries if e.status == "active")
         or "(none)"
@@ -70,6 +78,9 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
     for cid in db.conversations_on(day):
         if cid in done:
             continue
+        # Routing on means a private adapter is passed; off keeps the old single-model path.
+        private = private_adapter is not None and db.is_private(cid)
+        model = private_adapter if private else adapter
         messages = db.messages(cid)
         if not any(m["role"] == "user" for m in messages):
             continue
@@ -78,12 +89,16 @@ def extract_memories(day: date, db: Db, data: KaData, adapter: Adapter, now: dat
             {"role": "user", "content": _transcript(messages)},
         ]
         try:
-            reply = adapter.complete(prompt, [])
+            reply = model.complete(prompt, [])
         except AdapterError as e:
             log.warning("extraction skipped for %s: %s", cid, e)
             failed += 1
             continue
         for item in parse_items(reply.text or ""):
+            if private and re.search(r"\d", item["text"]):
+                # memories reach every system prompt, default model included: no amounts
+                log.warning("dropped item with a number from private chat %s", cid)
+                continue
             kind = item.get("type") if item.get("type") in TYPES else "fact"
             try:
                 result = queue_memory(db, data, item["text"], kind, item.get("replaces"), cid, now)

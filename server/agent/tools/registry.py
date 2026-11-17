@@ -33,6 +33,11 @@ class ToolContext:
     db: Db | None = None
     conversation_id: str | None = None
 
+    def mark_private(self) -> None:
+        """The result holds finance data: move this conversation to the private model."""
+        if self.db is not None and self.conversation_id is not None:
+            self.db.mark_private(self.conversation_id)
+
     @property
     def data(self) -> KaData:
         # Reloaded each time so a committed change is visible at once; the files are small.
@@ -47,6 +52,7 @@ class Tool:
     fn: Callable[[Any, ToolContext], Any]
     mode: Literal["READ", "WRITE"]
     approval: bool  # True: fn returns a PendingWrite for the loop to show and apply
+    private: bool = False  # result holds finance data: the conversation moves to the private model
 
 
 REGISTRY: dict[str, Tool] = {}
@@ -58,11 +64,12 @@ def tool(
     args_model: type[KaModel],
     mode: Literal["READ", "WRITE"] = "READ",
     approval: bool = False,
+    private: bool = False,
 ):
     def register(fn: Callable[[Any, ToolContext], Any]):
         if name in REGISTRY:
             raise ValueError(f"tool already registered: {name}")
-        REGISTRY[name] = Tool(name, description, args_model, fn, mode, approval)
+        REGISTRY[name] = Tool(name, description, args_model, fn, mode, approval, private)
         return fn
 
     return register

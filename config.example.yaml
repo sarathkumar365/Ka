@@ -6,6 +6,9 @@ flags:
   web_ui: false
   intake: false
   category_suggestions: false
+  private_routing: false
 ui_hosts: []  # extra Host names the UI accepts, e.g. a tailscale hostname
 models:
   default: {provider: openai, model: "set-me"}  # key comes from OPENAI_API_KEY in .env
+private_models:  # finance conversations, tried in order; an Ollama entry can go first later
+  - {provider: openrouter, model: "set-me", zdr: true, only: [amazon-bedrock]}  # key from OPENROUTER_API_KEY
