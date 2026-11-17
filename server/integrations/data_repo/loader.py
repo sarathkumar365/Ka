@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, YAMLError
 
 from .schemas.accounts import AccountsFile
 from .schemas.categories import CategoriesFile
@@ -71,7 +71,10 @@ def _read(root: Path, name: str, model: type) -> Any:
     path = root / name
     if not path.is_file():
         raise DataRepoError(name, None, "file missing")
-    raw = YAML(typ="safe").load(path.read_text()) or {}
+    try:
+        raw = YAML(typ="safe").load(path.read_text()) or {}
+    except YAMLError as e:
+        raise DataRepoError(name, None, f"invalid YAML: {str(e).splitlines()[0]}") from e
     try:
         return model(**_plain(raw))
     except ValidationError as e:

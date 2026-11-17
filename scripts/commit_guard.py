@@ -38,12 +38,11 @@ def find_violations(files: dict[str, bytes], denylist: list[str]) -> list[Violat
         p = PurePosixPath(path)
         if p.name == ".env" or (p.name.startswith(".env.") and p.name != ".env.example"):
             out.append(Violation(path, "env_file", "env files must not be committed"))
-        if p.suffix.lower() == ".pdf" and not path.startswith("tests/fixtures/"):
-            out.append(Violation(path, "pdf", "PDFs allowed only under tests/fixtures/"))
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            continue
+        if p.suffix.lower() == ".pdf":  # compressed text hides personal data from the scan
+            out.append(
+                Violation(path, "pdf", "PDFs are never committed; tests build them on the fly")
+            )
+        text = content.decode("utf-8", errors="replace")
         for pat in SECRET_PATTERNS:
             if pat.search(text):
                 out.append(Violation(path, "secret", f"matches {pat.pattern[:12]}..."))
@@ -75,7 +74,8 @@ def main() -> int:
         else:
             print(f"warning: no denylist at {cfg.denylist_path}", file=sys.stderr)
     except ConfigError as e:
-        print(f"warning: {e}", file=sys.stderr)
+        print(f"BLOCKED: cannot load the denylist because of config: {e}")
+        return 1
     violations = find_violations(files, denylist)
     for v in violations:
         print(f"BLOCKED {v.path}: {v.rule}: {v.detail}")

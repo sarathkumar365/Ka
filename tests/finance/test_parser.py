@@ -50,3 +50,17 @@ def test_rejects_scanned_and_other_bank_pdfs(tmp_path):
     build_statement(p, StatementSpec(scotiabank=False))
     with pytest.raises(StatementFormatError, match="not a Scotiabank"):
         parse_statement(p)
+    p.write_text("not a pdf")
+    with pytest.raises(StatementFormatError, match="cannot read"):
+        parse_statement(p)
+    with pytest.raises(StatementFormatError, match="not found"):
+        parse_statement(tmp_path / "missing.pdf")
+
+
+def test_overdrawn_opening_balance_parses(tmp_path):
+    p = tmp_path / "s.pdf"
+    build_statement(
+        p,
+        StatementSpec(opening_balance=Decimal("-20.00"), rows=[row(25, "Deposit", None, "50.00")]),
+    )
+    assert parse_statement(p).summary.opening_balance == Decimal("-20.00")

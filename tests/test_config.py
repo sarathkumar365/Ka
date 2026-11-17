@@ -21,3 +21,6 @@ def test_missing_file_and_unknown_key_raise(tmp_path):
     f.write_text("data_repo: /x\nbogus: 1\n")
     with pytest.raises(ConfigError):
         load_config(f)
+    f.write_text("data_repo: [\n")
+    with pytest.raises(ConfigError, match="c.yaml"):
+        load_config(f)

@@ -3,7 +3,6 @@
 !.env.example
 config.yaml
 *.pdf
-!tests/fixtures/**/*.pdf
 .DS_Store
 .venv/
 __pycache__/

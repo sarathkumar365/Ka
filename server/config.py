@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, YAMLError
 
 
 class ConfigError(Exception):
@@ -39,7 +39,10 @@ def load_config(path: Path | None = None) -> Config:
     )
     if not chosen.is_file():
         raise ConfigError(f"config not found: {chosen}. Copy config.example.yaml to config.yaml")
-    raw = YAML(typ="safe").load(chosen.read_text()) or {}
+    try:
+        raw = YAML(typ="safe").load(chosen.read_text()) or {}
+    except YAMLError as e:
+        raise ConfigError(f"{chosen}: invalid YAML") from e
     try:
         return Config(**raw)
     except ValidationError as e:

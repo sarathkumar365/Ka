@@ -68,8 +68,9 @@ calls, no UI in this pass. The owner must be able to explain every part afterwar
    record's ID is never reused.
 8. **`other.yaml`** starts with one type: `project`.
 9. **Denylist for the commit hook** is filled by the builder from the statement and the spec; the
-   owner adds anything missing. If the file is absent the hook warns and passes, so the public
-   repo still works for someone without a data repo.
+   owner adds anything missing. If the denylist file is absent the hook warns and passes, so the public
+   repo still works for someone without a data repo. If `config.yaml` itself is missing the hook
+   blocks, so a fresh clone or worktree cannot commit without a denylist by accident.
 10. **Account details not printed on the statement** (bank of the investment account, last4 of
     card and loan) are left empty or assumed and listed for the owner to correct.
 11. Python 3.13, uv, ruff, pytest. Package name `ka-agent`. No licence file yet.
@@ -106,7 +107,7 @@ Code repo `Ka/`:
   `flows/`.
 - `.claude/agents/reviewer.md` and `.claude/skills/flow-docs/SKILL.md` as the spec describes.
 - Pre-commit hook in `scripts/hooks/pre-commit`, enabled with `git config core.hooksPath`. Blocks:
-  `.env` files, PDFs outside `tests/fixtures`, common secret patterns, and any string listed in an
+  `.env` files, PDFs anywhere (tests build synthetic PDFs on the fly; compressed text would hide personal data from the scan), common secret patterns, and any string listed in an
   untracked denylist file (`~/Projects/ka-data/local/denylist.txt`: name, emails, account
   numbers, employer names). Has its own test.
 - `config.example.yaml` (data repo path, flags, all default off) and a loader. `config.yaml` is
