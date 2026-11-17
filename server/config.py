@@ -34,7 +34,9 @@ class Config(BaseModel):
 
 
 def load_config(path: Path | None = None) -> Config:
-    chosen = path or (Path(os.environ["KA_CONFIG"]) if "KA_CONFIG" in os.environ else Path("config.yaml"))
+    chosen = path or (
+        Path(os.environ["KA_CONFIG"]) if "KA_CONFIG" in os.environ else Path("config.yaml")
+    )
     if not chosen.is_file():
         raise ConfigError(f"config not found: {chosen}. Copy config.example.yaml to config.yaml")
     raw = YAML(typ="safe").load(chosen.read_text()) or {}

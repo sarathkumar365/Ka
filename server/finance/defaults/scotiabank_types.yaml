@@ -1,0 +1,16 @@
+# Generic Scotiabank chequing type texts. Personal overrides live in the data repo.
+types:
+  - {bank: scotiabank, type_text: Point of sale purchase, tag: purchase}
+  - {bank: scotiabank, type_text: Withdrawal, tag: purchase}
+  - {bank: scotiabank, type_text: Deposit, tag: income}
+  - {bank: scotiabank, type_text: MB-Bill payment, tag: purchase}
+  - {bank: scotiabank, type_text: Telephone bill, tag: purchase}
+  - {bank: scotiabank, type_text: MB-Transfer to, tag: purchase}
+  - {bank: scotiabank, type_text: MB-Transfer from, tag: income}
+  - {bank: scotiabank, type_text: IO Transfer to, tag: purchase}
+  - {bank: scotiabank, type_text: Payroll dep., tag: income}
+  - {bank: scotiabank, type_text: Loans, tag: borrowing}
+  - {bank: scotiabank, type_text: Credit Card/LOC payment, tag: debt_payment}
+  - {bank: scotiabank, type_text: Service charge, tag: fee}
+  - {bank: scotiabank, type_text: Error correction, tag: refund, nets_against_original: true}
+  - {bank: scotiabank, type_text: Returned NSF cheque, tag: nsf_return, nets_against_original: true}
