@@ -1,0 +1,5 @@
+data_repo: ~/Projects/ka-data
+flags:
+  nightly_extraction: false
+  voice_mic: false
+  notion_source: false
