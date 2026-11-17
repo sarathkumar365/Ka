@@ -5,6 +5,7 @@ from pathlib import Path
 from server.config import ConfigError, load_config
 from server.finance.importer import ImportFailed, commit_import, prepare_import
 from server.finance.parser import StatementFormatError
+from server.finance.statements import list_statement_files
 from server.finance.store import CsvFinanceStore
 from server.integrations.data_repo.loader import DataRepoError, load_data
 
@@ -57,9 +58,8 @@ def _import(args: argparse.Namespace) -> int:
 
 def _statements(_args: argparse.Namespace) -> int:
     cfg = load_config()
-    imported = {s.file_name for s in CsvFinanceStore(cfg.finance_dir).statements()}
-    for pdf in sorted(cfg.statements_dir.glob("*.pdf")):
-        print(f"{'imported' if pdf.name in imported else 'new':9}{pdf.name}")
+    for f in list_statement_files(cfg, CsvFinanceStore(cfg.finance_dir)):
+        print(f"{'imported' if f.imported else 'new':9}{f.name}")
     return 0
 
 
