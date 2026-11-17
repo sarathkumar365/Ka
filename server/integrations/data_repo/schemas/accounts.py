@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from .common import KaModel, require_unique
+from .common import KaModel, MatchText, require_unique
 
 
 class Account(KaModel):
@@ -13,7 +13,7 @@ class Account(KaModel):
     last4: str | None = None
     mine: bool = True
     primary: bool = False
-    match: list[str] = []
+    match: list[MatchText] = []
 
 
 class AccountsFile(KaModel):

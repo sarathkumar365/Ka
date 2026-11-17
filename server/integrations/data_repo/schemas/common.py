@@ -21,6 +21,15 @@ PartialDate = Annotated[
 ]
 
 
+def _match_text(v: str) -> str:
+    if len("".join(v.split())) < 4:
+        raise ValueError("match text needs at least 4 non-space characters")
+    return v
+
+
+MatchText = Annotated[str, AfterValidator(_match_text)]
+
+
 def require_unique(ids: list[str], what: str) -> None:
     dupes = {i for i in ids if ids.count(i) > 1}
     if dupes:

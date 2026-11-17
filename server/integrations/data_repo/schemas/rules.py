@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from .common import KaModel, PartialDate, require_unique
+from .common import KaModel, MatchText, PartialDate, require_unique
 
 Tag = Literal[
     "purchase", "refund", "nsf_return", "own_transfer", "borrowing", "debt_payment", "income", "fee"
@@ -11,7 +11,7 @@ Tag = Literal[
 
 class MerchantRule(KaModel):
     id: str = Field(pattern=r"^R-\d{3}$")
-    match: str
+    match: MatchText
     category: str
     approved: PartialDate
 

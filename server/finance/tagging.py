@@ -61,7 +61,8 @@ def _find_original(
     candidates = [
         t
         for t in pool
-        if norm(t.description) == norm(row.description)
+        if t.account == row.account
+        and norm(t.description) == norm(row.description)
         and t.amount == -row.amount
         and timedelta(0) <= row.date - t.date <= NETTING_WINDOW
         and t.id not in taken

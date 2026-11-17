@@ -7,6 +7,7 @@ from server.integrations.data_repo.schemas.accounts import Account
 from server.integrations.data_repo.schemas.ids import IdsFile
 from server.integrations.data_repo.schemas.jobs import Highlight, Number
 from server.integrations.data_repo.schemas.profile import Address, Profile
+from server.integrations.data_repo.schemas.rules import MerchantRule
 
 
 def test_rejects_bad_ids_dates_enums_and_extra_fields():
@@ -20,6 +21,10 @@ def test_rejects_bad_ids_dates_enums_and_extra_fields():
         Address(address="x", **{"from": "2024-13"})
     with pytest.raises(ValidationError):
         IdsFile(next={"H": 0})
+    with pytest.raises(ValidationError):
+        Account(id="A-01", kind="chequing", label="x", match=["12"])  # too short to be safe
+    with pytest.raises(ValidationError):
+        MerchantRule(id="R-001", match="ab", category="other", approved="2026-01")
 
 
 def test_accepts_from_key_and_keeps_decimals_exact():

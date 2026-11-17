@@ -67,3 +67,10 @@ def test_corrections_link_one_way_to_latest_unlinked_charge_and_unknowns_are_rep
     assert (t[0].category, t[5].tag, t[5].category) == ("dining", "income", "")
     assert r.unknown_types == ["Canada Example Benefit"]
     assert r.unknown_merchants == ["Apos Mystery Shop"]
+
+
+def test_corrections_do_not_link_across_accounts():
+    charge = tag([L(1, 1, "Point of sale purchase", "Apos Corner Cafe", "-4.50")]).transactions[0]
+    other = charge.model_copy(update={"account": "A-02"})
+    r = tag([L(1, 2, "Error correction", "Apos Corner Cafe", "4.50")], existing=[other])
+    assert r.transactions[0].linked_id == "" and r.unlinked == [r.transactions[0].id]
