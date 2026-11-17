@@ -1,0 +1,2 @@
+entries:
+  - {id: E-01, level: bachelor, institution: Example University, program: Computer Science, city: Exampleville, country: Testland, start: "2008-09", end: "2012-06", grade: "3.4", grade_scale: "4.0"}

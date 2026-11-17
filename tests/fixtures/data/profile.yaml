@@ -1,0 +1,12 @@
+name: Avery Quinn
+date_of_birth: "1990-05-17"
+emails:
+  - {address: avery@example.test, label: personal}
+languages:
+  - {name: English, level: native}
+location: {city: Exampleville, region: EX, country: Testland}
+addresses:
+  - {address: 1 Sample Road, from: "2020-01", current: true}
+links:
+  - {label: site, url: "https://example.test"}
+summary: Mid-level backend engineer.

@@ -1,0 +1,4 @@
+accounts:
+  - {id: A-01, bank: scotiabank, kind: chequing, label: Everyday Chequing, last4: "2233", mine: true, primary: true, match: ["111112222233"]}
+  - {id: A-02, bank: scotiabank, kind: savings, label: Savings, last4: "0001", mine: true, match: ["99900 01"]}
+  - {id: A-03, bank: examplelender, kind: loan, label: Example Loan, mine: true, match: [Example Lender]}

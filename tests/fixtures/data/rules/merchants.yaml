@@ -1,0 +1,3 @@
+rules:
+  - {id: R-001, match: Corner Cafe, category: dining, approved: "2026-01-01"}
+  - {id: R-002, match: Interac E-Transfer, category: e_transfer, approved: "2026-01-01"}

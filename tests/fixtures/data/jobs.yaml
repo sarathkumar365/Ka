@@ -1,0 +1,26 @@
+domains:
+  - {id: D-01, name: Backend, description: Server-side services and APIs}
+  - {id: D-02, name: Data-Insights, description: Analytics and reporting}
+jobs:
+  - company: Acme Widgets
+    position: Software Engineer
+    employment_type: full_time
+    location: Exampleville
+    start: "2022-03"
+    summary: Built services.
+    highlights:
+      - {id: H-001, text: Built an order API in Java, tech: [Java], domains: [D-01]}
+      - id: H-002
+        text: Cut report time
+        tech: [SQL]
+        domains: [D-02]
+        numbers:
+          - {value: "40", unit: percent, label: faster reports}
+  - company: Beta Labs
+    position: Junior Developer
+    employment_type: contract
+    start: "2019-06"
+    end: "2022-02"
+    highlights:
+      - {id: H-003, text: Wrote React dashboards, tech: [React], domains: [D-02]}
+      - {id: H-004, text: Old retired item, domains: [D-01], retired: true}

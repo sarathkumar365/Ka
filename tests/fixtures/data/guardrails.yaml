@@ -1,0 +1,3 @@
+rules:
+  - {id: G-01, text: Never claim RAG experience, kind: never_claim, scope: all, reason: not true}
+  - {id: G-02, text: Do not claim senior level, kind: limit, scope: resume}
