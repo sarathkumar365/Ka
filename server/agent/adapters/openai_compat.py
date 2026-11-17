@@ -11,6 +11,7 @@ from server.config import ModelConfig
 from .base import AdapterError, Reply, ToolCall, Usage
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
+NO_CREDITS = {"insufficient_quota", "credit_balance_exhausted"}
 RETRYABLE = (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)
 
 
@@ -44,6 +45,11 @@ class OpenAICompatAdapter:
                 resp = self.client.chat.completions.create(**kwargs)
                 break
             except openai.OpenAIError as e:
+                if (
+                    getattr(e, "code", None) in NO_CREDITS
+                    or getattr(e, "type", None) == "insufficient_quota"
+                ):
+                    raise AdapterError("provider reports no credits remaining") from None
                 if not _retryable(e):
                     # type name only: provider messages can echo headers or keys
                     raise AdapterError(f"model call failed: {type(e).__name__}") from None
@@ -62,6 +68,11 @@ class OpenAICompatAdapter:
 
 
 def build_adapter(cfg: ModelConfig, env: Mapping[str, str] = os.environ) -> OpenAICompatAdapter:
+    if cfg.provider == "openai":
+        key = env.get("OPENAI_API_KEY")
+        if not key:
+            raise AdapterError("OPENAI_API_KEY not set")
+        return OpenAICompatAdapter(cfg.model, cfg.base_url, key)
     if cfg.provider == "openrouter":
         key = env.get("OPENROUTER_API_KEY")
         if not key:

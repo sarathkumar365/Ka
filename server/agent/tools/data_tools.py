@@ -32,7 +32,8 @@ def get_profile(args: NoArgs, ctx: ToolContext):
 
 @tool(
     "get_jobs",
-    "Return work history: domains, jobs and their highlights (retired ones only on request).",
+    "Return work history: domains, jobs and their highlights (retired ones only on request). "
+    "Each job has a `key` to use with propose_change.",
     JobsArgs,
 )
 def get_jobs(args: JobsArgs, ctx: ToolContext):
@@ -40,6 +41,10 @@ def get_jobs(args: JobsArgs, ctx: ToolContext):
     if not args.include_retired:
         for job in out["jobs"]:
             job["highlights"] = [h for h in job["highlights"] if not h["retired"]]
+    for job in out["jobs"]:
+        job["key"] = (
+            f"{job['company']}|{job['start']}"  # what propose_change needs to address a job
+        )
     return out
 
 

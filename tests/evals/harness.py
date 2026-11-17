@@ -54,9 +54,13 @@ def not_called(name: str) -> Check:
     return lambda r: f"called {name}" if any(n == name for n, _ in r.tool_calls) else None
 
 
+def _plain(text: str) -> str:
+    return text.replace("\u2019", "'").replace("\u2018", "'").lower()
+
+
 def answer_has(*parts: str) -> Check:
     def check(r: Run) -> str | None:
-        missing = [p for p in parts if p.lower() not in r.answer.lower()]
+        missing = [p for p in parts if _plain(p) not in _plain(r.answer)]
         return f"answer lacks {missing}" if missing else None
 
     return check
@@ -64,7 +68,7 @@ def answer_has(*parts: str) -> Check:
 
 def answer_has_any(*parts: str) -> Check:
     def check(r: Run) -> str | None:
-        if any(p.lower() in r.answer.lower() for p in parts):
+        if any(_plain(p) in _plain(r.answer) for p in parts):
             return None
         return f"answer has none of {list(parts)}"
 
@@ -73,7 +77,7 @@ def answer_has_any(*parts: str) -> Check:
 
 def answer_lacks(*parts: str) -> Check:
     def check(r: Run) -> str | None:
-        found = [p for p in parts if p.lower() in r.answer.lower()]
+        found = [p for p in parts if _plain(p) in _plain(r.answer)]
         return f"answer contains {found}" if found else None
 
     return check

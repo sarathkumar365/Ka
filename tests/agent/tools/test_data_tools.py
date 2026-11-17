@@ -14,3 +14,8 @@ def test_get_jobs_hides_retired_highlights_by_default(ctx):
 
     assert "H-004" not in ids(run_tool("get_jobs", {}, ctx))
     assert "H-004" in ids(run_tool("get_jobs", {"include_retired": True}, ctx))
+
+
+def test_get_jobs_gives_each_job_the_key_propose_change_needs(ctx):
+    keys = [j["key"] for j in run_tool("get_jobs", {}, ctx)["jobs"]]
+    assert keys == ["Acme Widgets|2022-03", "Beta Labs|2019-06"]

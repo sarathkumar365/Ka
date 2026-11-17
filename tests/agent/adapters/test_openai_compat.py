@@ -92,3 +92,23 @@ def test_reply_without_choices_is_an_adapter_error():
     empty = NS(choices=[], usage=None)
     with pytest.raises(AdapterError, match="no choices"):
         adapter([empty], []).complete([], [])
+
+
+def test_openai_provider_needs_its_own_key_and_uses_default_endpoint():
+    cfg = ModelConfig(provider="openai", model="m")
+    with pytest.raises(AdapterError, match="OPENAI_API_KEY"):
+        build_adapter(cfg, env={})
+    a = build_adapter(cfg, env={"OPENAI_API_KEY": "sk-x"})
+    assert "openai.com" in str(a.client.base_url)
+
+
+def test_out_of_credits_fails_at_once_with_a_clear_message():
+    broke = openai.RateLimitError(
+        "no credits",
+        response=httpx.Response(429, request=REQ),
+        body={"code": "credit_balance_exhausted", "type": "insufficient_quota", "message": "x"},
+    )
+    sleeps = []
+    with pytest.raises(AdapterError, match="no credits"):
+        adapter([broke], sleeps).complete([], [])
+    assert not sleeps

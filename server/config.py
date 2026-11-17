@@ -13,7 +13,7 @@ class ConfigError(Exception):
 class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    provider: Literal["openrouter", "ollama"]
+    provider: Literal["openai", "openrouter", "ollama"]
     model: str
     base_url: str | None = None
 

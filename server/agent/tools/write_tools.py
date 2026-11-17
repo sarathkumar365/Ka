@@ -26,7 +26,7 @@ class ImportArgs(KaModel):
 @tool(
     "propose_change",
     "Propose an edit to personal data (profile, jobs, highlights, guardrails, accounts, ...). "
-    "Shows a diff; nothing is saved until the owner approves.",
+    "Shows a diff; nothing is saved until the owner approves. A job is addressed by the `key` get_jobs returns.",
     Patch,
     mode="WRITE",
     approval=True,

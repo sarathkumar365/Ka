@@ -49,3 +49,8 @@ def test_bad_script_is_graded_as_failure(tmp_path):
     c = case(1)
     run = run_case(c, scripted(final="About 200 dollars."), tmp_path)
     assert grade(c, run)  # no tool call and wrong number
+
+
+def test_answer_checks_ignore_curly_quotes():
+    run = Run("I don’t have that", [], [], 0, 1)
+    assert answer_has("don't have")(run) is None
