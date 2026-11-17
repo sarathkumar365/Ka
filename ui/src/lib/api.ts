@@ -69,6 +69,7 @@ export type ActivityRow = {
   text: string
   conversation_id: string | null
 }
+export type OnboardingStatus = { needed: boolean; reason: string }
 export type Settings = {
   models: Record<string, { provider: string; model: string }>
   flags: Record<string, boolean>
@@ -80,6 +81,7 @@ export const keys = {
   pending: ['pending'] as const,
   activity: ['activity'] as const,
   settings: ['settings'] as const,
+  onboarding: ['onboarding'] as const,
   intake: (id: string) => ['intake', id] as const,
 }
 
@@ -95,6 +97,8 @@ export const api = {
   rejectPending: (id: number) => post(`/pending/${id}/reject`),
   activity: () => call<ActivityRow[]>('/activity'),
   settings: () => call<Settings>('/settings'),
+  onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
+  completeOnboarding: () => post('/onboarding/complete') as Promise<{ ok: boolean }>,
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
   pasteMemory: (body: { text: string; source: string }) => call<{ job_id: string }>('/intake/memory', { method: 'POST', body: JSON.stringify(body) }),
   submitBasics: (body: { name: string; city: string; region: string; country: string; role: string }) =>

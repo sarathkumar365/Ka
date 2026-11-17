@@ -1,5 +1,7 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api, keys } from '../../lib/api'
 import { StepBasics } from './StepBasics'
 import { StepDocuments } from './StepDocuments'
 import { StepMemory } from './StepMemory'
@@ -11,6 +13,13 @@ const LABELS = ['Basics', 'Documents', 'Sources', 'Memory', 'Review']
 export function OnboardingPage() {
   const [step, setStep] = useState(0)
   const nav = useNavigate()
+  const qc = useQueryClient()
+  const finish = useMutation({
+    mutationFn: api.completeOnboarding,
+    // Settled, not success: a failed save must not leave the owner stuck; the skip holds for this page load.
+    onSettled: () => qc.setQueryData(keys.onboarding, { needed: false, reason: 'done' }),
+  })
+  const leave = (to: string) => finish.mutate(undefined, { onSettled: () => nav(to) })
   const last = step === LABELS.length - 1
   return (
     <div className="col page onboarding">
@@ -36,8 +45,11 @@ export function OnboardingPage() {
             Back
           </button>
         )}
-        <button className="next" onClick={() => (last ? nav('/pending') : setStep(step + 1))}>
+        <button className="next" onClick={() => (last ? leave('/pending') : setStep(step + 1))}>
           {last ? 'Done' : 'Next'}
+        </button>
+        <button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => leave('/chat')}>
+          Skip for now
         </button>
       </div>
     </div>

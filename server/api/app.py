@@ -35,7 +35,7 @@ UI_DIST = Path(__file__).resolve().parents[2] / "ui" / "dist"
 def create_app(
     cfg: Config, adapter_factory: Callable[[], Adapter], approval_timeout: float = 600.0
 ) -> FastAPI:
-    from . import activity, chat, conversations, intake, pending, settings
+    from . import activity, chat, conversations, intake, onboarding, pending, settings
     from .approvals import ApprovalBroker
 
     app = FastAPI(title="Ka", docs_url=None, redoc_url=None)
@@ -72,7 +72,7 @@ def create_app(
     app.state.running = set()
     app.state.lock = threading.Lock()
     app.state.pending_lock = threading.Lock()
-    for module in (conversations, pending, activity, settings, chat, intake):
+    for module in (conversations, pending, activity, settings, chat, intake, onboarding):
         app.include_router(module.router, prefix="/api")
     if UI_DIST.is_dir():
         app.mount("/", SPAStatic(directory=UI_DIST, html=True), name="ui")

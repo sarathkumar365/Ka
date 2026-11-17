@@ -24,6 +24,10 @@ Resume text (synthetic): "Northwind Test Co, Senior Backend Engineer, Mar 2023 t
 - **One writer.** `plan_batch` is the same validation, diff and lock as every other change; no new write path.
 - **Files are deleted** when the job ends. Re-running needs the file again; stored jobs are skipped and only new highlights become a card.
 
+## First run
+
+Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onboarding/status` says `needed` only when all three hold: flag `intake` is on, `onboarding_done` is not set in `ka.db` (table `app_state`), and no job is stored in `jobs.yaml`. The shell redirects every route except `/onboarding` while it is true. "Skip for now" and Done both call `POST /api/onboarding/complete`, so the owner is not sent back, also after a restart. The redirect fires once per page load, so Open Pending, the bell and the sidebar keep working while setting up. If the save fails, the skip still holds until the page is reloaded. If the check cannot run (unreadable data repo, failing request) the app opens normally. Source: `server/api/onboarding.py`, `ui/src/features/onboarding/gate.ts`, `ui/src/app/Shell.tsx`.
+
 ## Failure cases
 
 | Case | Result |

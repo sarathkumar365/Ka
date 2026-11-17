@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { api, keys } from '../lib/api'
+import { useFirstRunRedirect } from '../features/onboarding/gate'
 import { Icon } from '../lib/icons'
 import { Drawer } from './Sidebar'
 
@@ -11,6 +12,13 @@ export function Shell() {
   const { pathname } = useLocation()
   const { data: pending = [] } = useQuery({ queryKey: keys.pending, queryFn: api.pending })
   useEffect(() => setOpen(false), [pathname])
+  const { data: onboarding } = useQuery({
+    queryKey: keys.onboarding,
+    queryFn: api.onboardingStatus,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+  useFirstRunRedirect(onboarding, pathname, nav)
   const count = pending.length
   return (
     <div className="app">

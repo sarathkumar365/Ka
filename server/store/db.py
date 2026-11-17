@@ -25,6 +25,7 @@ create table if not exists pending (
     kind text not null, payload text not null, source text, norm_key text,
     status text not null default 'pending', created_at text not null
 );
+create table if not exists app_state (key text primary key, value text not null);
 create table if not exists intake_jobs (
     id text primary key, kind text not null, status text not null,
     step text not null default '', message text not null default '',
@@ -205,6 +206,18 @@ class Db:
             (limit,),
         ).fetchall()
         return [ActivityRow(*r) for r in rows]
+
+    def get_state(self, key: str) -> str | None:
+        r = self.conn.execute("select value from app_state where key=?", (key,)).fetchone()
+        return r[0] if r else None
+
+    def set_state(self, key: str, value: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "insert into app_state (key, value) values (?, ?)"
+                " on conflict(key) do update set value=excluded.value",
+                (key, value),
+            )
 
     def new_intake_job(self, kind: Literal["documents", "memory"], now: datetime) -> str:
         job_id = f"I-{now:%Y%m%d}-{secrets.token_hex(2)}"

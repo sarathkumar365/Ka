@@ -102,3 +102,12 @@ def test_shared_threads_db_can_move_between_threads(tmp_path):
     t.start()
     t.join()
     assert errors == []
+
+
+def test_app_state_roundtrip():
+    db = Db(":memory:")
+    assert db.get_state("onboarding_done") is None
+    db.set_state("onboarding_done", "1")
+    assert db.get_state("onboarding_done") == "1"
+    db.set_state("onboarding_done", "0")
+    assert db.get_state("onboarding_done") == "0"
