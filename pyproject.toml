@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Ka: personal data layer and agent"
 requires-python = ">=3.13"
 dependencies = [
+    "openai>=3.52.0",
     "pdfplumber>=0.11.10",
     "pydantic>=2.14.3",
     "ruamel-yaml>=0.19.1",
@@ -22,6 +23,7 @@ packages = ["server"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = ["live: runs real models, costs money (KA_LIVE_EVALS=1)"]
 
 [tool.ruff]
 line-length = 100

@@ -11,6 +11,7 @@ from server.config import Config
 from server.finance.store import FinanceStore
 from server.integrations.data_repo.loader import KaData, load_data
 from server.integrations.data_repo.schemas.common import KaModel
+from server.store.db import Db
 
 
 class ToolError(Exception):
@@ -29,6 +30,8 @@ class ToolContext:
     config: Config
     store: FinanceStore
     today: Callable[[], date] = date.today
+    db: Db | None = None
+    conversation_id: str | None = None
 
     @property
     def data(self) -> KaData:

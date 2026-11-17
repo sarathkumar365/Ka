@@ -3,3 +3,6 @@ flags:
   nightly_extraction: false
   voice_mic: false
   notion_source: false
+models:
+  default: {provider: openrouter, model: "set-me"}  # key comes from OPENROUTER_API_KEY in .env
+  local: {provider: ollama, model: "gemma4:e4b", base_url: "http://localhost:11434/v1"}

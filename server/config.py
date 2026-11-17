@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from ruamel.yaml import YAML, YAMLError
@@ -9,11 +10,20 @@ class ConfigError(Exception):
     pass
 
 
+class ModelConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    provider: Literal["openrouter", "ollama"]
+    model: str
+    base_url: str | None = None
+
+
 class Config(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     data_repo: Path
     flags: dict[str, bool] = {}
+    models: dict[str, ModelConfig] = {}
 
     @field_validator("data_repo")
     @classmethod
@@ -27,6 +37,10 @@ class Config(BaseModel):
     @property
     def finance_dir(self) -> Path:
         return self.data_repo / "local" / "finance"
+
+    @property
+    def db_path(self) -> Path:
+        return self.data_repo / "local" / "ka.db"
 
     @property
     def denylist_path(self) -> Path:

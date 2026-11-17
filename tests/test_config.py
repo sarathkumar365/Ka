@@ -24,3 +24,18 @@ def test_missing_file_and_unknown_key_raise(tmp_path):
     f.write_text("data_repo: [\n")
     with pytest.raises(ConfigError, match="c.yaml"):
         load_config(f)
+
+
+def test_models_parse_and_unknown_provider_is_rejected(tmp_path):
+    f = tmp_path / "c.yaml"
+    f.write_text(
+        "data_repo: /x\nmodels:\n  default: {provider: openrouter, model: m1}\n"
+        "  local: {provider: ollama, model: g, base_url: 'http://localhost:11434/v1'}\n"
+    )
+    cfg = load_config(f)
+    assert cfg.models["default"].model == "m1"
+    assert cfg.models["local"].base_url == "http://localhost:11434/v1"
+    assert cfg.db_path == Path("/x/local/ka.db")
+    f.write_text("data_repo: /x\nmodels:\n  default: {provider: bogus, model: m}\n")
+    with pytest.raises(ConfigError):
+        load_config(f)
