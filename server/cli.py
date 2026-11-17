@@ -81,6 +81,25 @@ def _chat(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from server.api.app import create_app
+
+    load_env()
+    cfg = load_config()
+    if not cfg.flags.get("web_ui"):
+        print("error: flag web_ui is off in config.yaml")
+        return 2
+    if "default" not in cfg.models:
+        print("error: no models.default in config.yaml")
+        return 2
+    model = cfg.models["default"]
+    build_adapter(model)  # fail now, not on the first message, if the key is missing
+    uvicorn.run(create_app(cfg, lambda: build_adapter(model)), host="127.0.0.1", port=args.port)
+    return 0
+
+
 def _extract(args: argparse.Namespace) -> int:
     load_env()
     cfg = load_config()
@@ -139,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
     chat.add_argument("--local", action="store_true", help="use the local Ollama model only")
     chat.add_argument("--resume", help="continue a saved conversation id")
     chat.set_defaults(func=_chat)
+    serve = sub.add_parser("serve", help="run the web UI on localhost")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.set_defaults(func=_serve)
     ext = sub.add_parser("extract", help="queue new memories from a day's chats")
     ext.add_argument("--date", help="YYYY-MM-DD, default today")
     ext.add_argument("--local", action="store_true")

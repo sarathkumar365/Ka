@@ -24,6 +24,7 @@ class Config(BaseModel):
     data_repo: Path
     flags: dict[str, bool] = {}
     models: dict[str, ModelConfig] = {}
+    ui_hosts: list[str] = []
 
     @field_validator("data_repo")
     @classmethod

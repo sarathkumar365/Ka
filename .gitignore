@@ -11,3 +11,5 @@ __pycache__/
 statements/
 .superpowers/
 .claude/.reviewed
+ui/node_modules
+ui/dist

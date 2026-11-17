@@ -306,3 +306,12 @@ The coding agent builds against mocks and synthetic data until each item is read
     card and loan) are left empty or assumed and listed for the owner to correct.
 11. Python 3.13, uv, ruff, pytest. Package name `ka-agent`. No licence file yet.
 
+
+## UI addendum (2026-11-17)
+
+- Screens built: chat, pending, activity, settings. The onboarding screen is deferred (owner's call); statement upload endpoints are dropped with it, statements stay in the folder.
+- Settings is read-only except the theme. Models and flags are edited in `config.yaml`.
+- The design is a single column with a top bar and a chat-history drawer at every width, not a persistent sidebar. Theme default is dark, as in the design, with the stored choice winning.
+- No component library (shadcn dropped): the design is bespoke, styles are plain CSS variables plus Tailwind.
+- Markdown answers (tables included) are the only rich rendering; `show_view` stays v1.2.
+- Phone: responsive web plus iOS PWA. No auth; the server binds to localhost and a phone uses `tailscale serve` with the hostname in `ui_hosts`.

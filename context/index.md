@@ -16,3 +16,8 @@
 | nightly-extraction | `flows/nightly-extraction.md` | `server/memory/extract.py`, `server/cli.py` |
 | review-pending | `flows/review-pending.md` | `server/memory/pending.py`, `server/agent/tools/memory_tools.py`, `server/cli.py` |
 | evals | `flows/evals.md` | `tests/evals/*` |
+| chat | `flows/chat.md` | `server/api/{chat,approvals,describe}.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts` |
+| pending (UI) | `flows/pending.md` | `server/api/pending.py`, `ui/src/features/pending/*` |
+| activity | `flows/activity.md` | `server/api/{activity,describe}.py`, `ui/src/features/activity/*` |
+| settings | `flows/settings.md` | `server/api/settings.py`, `ui/src/features/settings/*` |
+| pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py` |

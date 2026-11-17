@@ -58,3 +58,47 @@ def test_tool_output_is_not_searchable():
     cid = db.new_conversation(NOW)
     db.add_message(cid, {"role": "tool", "tool_call_id": "a", "content": "Corner Cafe -4.50"}, NOW)
     assert db.search("Corner") == []
+
+
+def test_list_conversations_titles_and_orders():
+    db = Db(":memory:")
+    old = db.new_conversation(NOW)
+    db.add_message(old, {"role": "user", "content": "x" * 200}, NOW)
+    new = db.new_conversation(NOW)
+    empty = db.new_conversation(NOW)
+    later = datetime(2031, 4, 6, tzinfo=UTC)
+    db.add_message(new, {"role": "user", "content": "  hello\n there "}, NOW)
+    db.add_message(old, {"role": "assistant", "content": "late"}, later)
+    rows = {r.id: r for r in db.list_conversations()}
+    assert db.list_conversations()[0].id == old
+    assert rows[old].title == "x" * 60
+    assert rows[new].title == "hello there"
+    assert rows[empty].title == "New chat"
+
+
+def test_activity_newest_first():
+    db = Db(":memory:")
+    db.add_activity("read", "first", NOW)
+    db.add_activity("change", "second", NOW, "C-1")
+    rows = db.list_activity()
+    assert [r.text for r in rows] == ["second", "first"]
+    assert rows[0].conversation_id == "C-1" and rows[0].kind == "change"
+
+
+def test_shared_threads_db_can_move_between_threads(tmp_path):
+    import threading
+
+    db = Db(tmp_path / "t.db", shared_threads=True)
+    errors = []
+
+    def use():
+        try:
+            db.list_conversations()
+            db.conn.close()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    t = threading.Thread(target=use)
+    t.start()
+    t.join()
+    assert errors == []
