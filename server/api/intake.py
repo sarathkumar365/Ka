@@ -29,9 +29,13 @@ def _on(request: Request) -> None:
         raise HTTPException(404, "intake is off")
 
 
-class MemoryBody(BaseModel):
+class MemoryItem(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
-    source: str = Field(default="assistant", max_length=40)
+    source: str = Field(default="assistant", min_length=1, max_length=40)
+
+
+class MemoryBody(BaseModel):
+    items: list[MemoryItem] = Field(min_length=1, max_length=5)
 
 
 class BasicsBody(BaseModel):
@@ -111,7 +115,7 @@ def paste_memory(
     job_id = _start(request, db, "memory")
     threading.Thread(
         target=run_memory_job,
-        args=(job_id, body.text, body.source, cfg, adapter),
+        args=(job_id, [(i.source, i.text) for i in body.items], cfg, adapter),
         daemon=True,
     ).start()
     return {"job_id": job_id}

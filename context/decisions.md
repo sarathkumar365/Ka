@@ -323,6 +323,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 - Resume may propose name, emails, phones, location, links, languages; never date of birth or addresses. A flagged job (for example no start date) is not editable on the card in v1: reject it and give the fix in chat.
 - Uploaded files are deleted when the job ends. The chat agent cannot see or approve intake cards.
 - Feature flag `intake`, default off.
+- Memory paste takes several assistants at once (up to 5), as one job; duplicates across assistants are skipped.
 
 ## First-run onboarding addendum (2026-11-17)
 

@@ -100,9 +100,50 @@ def test_memory_job_done(setup):
     cfg, db, _ = setup
     job = db.new_intake_job("memory", NOW)
     items = json.dumps([{"type": "fact", "text": "Speaks French", "replaces": None}])
-    run_memory_job(job, "pasted", "claude", cfg, FakeAdapter([Reply(text=items)]), lambda: NOW)
+    run_memory_job(job, [("claude", "pasted")], cfg, FakeAdapter([Reply(text=items)]), lambda: NOW)
     got = db.get_intake_job(job)
     assert got.status == "done" and got.result["cards"] == 1
+
+
+def test_memory_job_several_assistants(setup):
+    from server.agent.adapters import AdapterError
+
+    cfg, db, _ = setup
+    job = db.new_intake_job("memory", NOW)
+
+    class Script:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, messages, tools):
+            self.calls.append(messages)
+            if len(self.calls) == 2:
+                raise AdapterError("timeout")
+            return Reply(text=json.dumps([{"type": "fact", "text": f"Fact {len(self.calls)}"}]))
+
+    adapter = Script()
+    sources = [("claude", "a"), ("gemini", "b"), ("chatgpt", "c")]
+    run_memory_job(job, sources, cfg, adapter, lambda: NOW)
+    got = db.get_intake_job(job)
+    assert got.status == "done" and got.result["cards"] == 2
+    assert any("gemini" in w for w in got.result["warnings"])
+    assert "Fact 1" in adapter.calls[2][0]["content"]  # later sources see earlier items
+    sources_seen = {i.source for i in db.list_pending()}
+    assert sources_seen == {"import:claude", "import:chatgpt"}
+
+
+def test_memory_job_all_sources_fail(setup):
+    from server.agent.adapters import AdapterError
+
+    cfg, db, _ = setup
+    job = db.new_intake_job("memory", NOW)
+
+    class Down:
+        def complete(self, messages, tools):
+            raise AdapterError("down")
+
+    run_memory_job(job, [("claude", "a"), ("chatgpt", "b")], cfg, Down(), lambda: NOW)
+    assert db.get_intake_job(job).status == "failed"
 
 
 def test_second_file_failing_queues_nothing(setup, tmp_path):

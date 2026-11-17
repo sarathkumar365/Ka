@@ -106,7 +106,8 @@ def test_second_job_while_running_is_409(on, cfg):
     db = Db(cfg.db_path)
     db.update_intake_job(db.new_intake_job("documents", datetime.now()), status="running")
     assert upload(c).status_code == 409
-    assert c.post("/api/intake/memory", json={"text": "x", "source": "claude"}).status_code == 409
+    one = {"items": [{"text": "x", "source": "claude"}]}
+    assert c.post("/api/intake/memory", json=one).status_code == 409
 
 
 def test_basics_and_memory_endpoints(on):
@@ -116,7 +117,11 @@ def test_basics_and_memory_endpoints(on):
         json={"name": "Avery Quinn", "city": "Newtown", "role": "Platform engineer"},
     )
     assert r.status_code == 200 and r.json()["cards"] >= 1
-    assert c.post("/api/intake/memory", json={"text": "", "source": "claude"}).status_code == 422
+    empty = {"items": [{"text": "", "source": "claude"}]}
+    assert c.post("/api/intake/memory", json=empty).status_code == 422
+    too_many = {"items": [{"text": "x", "source": f"s{n}"} for n in range(6)]}
+    assert c.post("/api/intake/memory", json=too_many).status_code == 422
+    assert c.post("/api/intake/memory", json={"items": []}).status_code == 422
     assert c.get("/api/intake/I-nope").status_code == 404
 
 

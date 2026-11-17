@@ -128,7 +128,8 @@ export const api = {
   onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
   completeOnboarding: () => post('/onboarding/complete') as Promise<{ ok: boolean }>,
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
-  pasteMemory: (body: { text: string; source: string }) => call<{ job_id: string }>('/intake/memory', { method: 'POST', body: JSON.stringify(body) }),
+  pasteMemory: (items: { text: string; source: string }[]) =>
+    call<{ job_id: string }>('/intake/memory', { method: 'POST', body: JSON.stringify({ items }) }),
   submitBasics: (body: { name: string; city: string; region: string; country: string; role: string }) =>
     call<{ cards: number }>('/intake/basics', { method: 'POST', body: JSON.stringify(body) }),
   async uploadDocuments(files: File[]): Promise<{ job_id: string }> {

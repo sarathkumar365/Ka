@@ -78,22 +78,29 @@ def run_documents_job(
 
 def run_memory_job(
     job_id: str,
-    text: str,
-    source: str,
+    sources: list[tuple[str, str]],
     cfg: Config,
     adapter: Adapter,
     now: Callable[[], datetime] = datetime.now,
 ) -> None:
+    """One job for every pasted export: each source in turn; one failing source is a warning."""
     db = Db(cfg.db_path)
     try:
-        db.update_intake_job(job_id, status="running", step="Reading the pasted text")
         data = load_data(cfg.data_repo)
-        n = import_memory(text, source, db, data, adapter, now())
-        db.update_intake_job(
-            job_id, status="done", step="Done", result={"cards": n, "skipped": [], "warnings": []}
-        )
-    except IntakeError as e:
-        db.update_intake_job(job_id, status="failed", message=str(e))
+        seen: list[str] = []
+        cards, warnings = 0, []
+        for n, (source, text) in enumerate(sources, 1):
+            step = f"Reading {source} ({n} of {len(sources)})"
+            db.update_intake_job(job_id, status="running", step=step)
+            try:
+                cards += import_memory(text, source, db, data, adapter, now(), seen)
+            except IntakeError as e:
+                warnings.append(f"{source}: {e}")
+        if len(warnings) == len(sources):
+            db.update_intake_job(job_id, status="failed", message="; ".join(warnings))
+            return
+        result = {"cards": cards, "skipped": [], "warnings": warnings}
+        db.update_intake_job(job_id, status="done", step="Done", result=result)
     except Exception:
         log.exception("intake job %s failed", job_id)
         db.update_intake_job(job_id, status="failed", message=GENERIC)

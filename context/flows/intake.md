@@ -24,6 +24,10 @@ Resume text (synthetic): "Northwind Test Co, Senior Backend Engineer, Mar 2023 t
 - **One writer.** `plan_batch` is the same validation, diff and lock as every other change; no new write path.
 - **Files are deleted** when the job ends. Re-running needs the file again; stored jobs are skipped and only new highlights become a card.
 
+## Memory from several assistants
+
+The Memory step takes up to 5 pasted exports, one box per assistant (Claude, ChatGPT, Gemini, other). `POST /api/intake/memory {items: [{source, text}]}` starts one `memory` job; `runner.run_memory_job` reads each source in turn with `memory_import.import_memory`. Items already queued in this run are listed to the model as "just imported" for the next source, so the same fact told differently by two assistants is kept once; each item carries `import:<assistant>` as its source. A source the model cannot read becomes a warning and the others continue; the job fails only when every source fails. Terminal: `ka intake --memory a.txt --source claude --memory b.txt --source chatgpt`.
+
 ## First run
 
 Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onboarding/status` says `needed` only when all three hold: flag `intake` is on, `onboarding_done` is not set in `ka.db` (table `app_state`), and no job is stored in `jobs.yaml`. The shell redirects every route except `/onboarding` while it is true. "Skip for now" and Done both call `POST /api/onboarding/complete`, so the owner is not sent back, also after a restart. The redirect fires once per page load, so Open Pending, the bell and the sidebar keep working while setting up. If the save fails, the skip still holds until the page is reloaded. If the check cannot run (unreadable data repo, failing request) the app opens normally. Source: `server/api/onboarding.py`, `ui/src/features/onboarding/gate.ts`, `ui/src/app/Shell.tsx`.
@@ -40,6 +44,7 @@ Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onb
 | Bank statement PDF uploaded | skipped with a note to use the statement import |
 | Server restart during a job | job `failed: interrupted`; a new upload is allowed |
 | Another job already running | 409 |
+| One of several memory sources fails | warning in the job result; the other sources are still queued |
 
 Source: `server/intake/*`, `server/api/intake.py`, `server/api/pending.py`, `server/integrations/data_repo/writer.py` (`plan_batch`), `ui/src/features/onboarding/*`, `ui/src/features/pending/BundleCard.tsx`
 

@@ -10,7 +10,7 @@ Never load any `*.interview.md` file (keeps context lean).
 - `uv run ka check|import|statements` CLI
 - `uv run ka google login|status|probe`, `uv run ka sheet push` (flag `google`)
 - `uv run ka suggest` queue category suggestions for uncategorised rows (flag `category_suggestions`)
-- `uv run ka intake FILE...` resume to pending cards (flag `intake`); `uv run ka serve` web UI on 127.0.0.1:8000 (flag `web_ui`); `cd ui && npm install`, `npm run dev` (proxy to :8000), `npx vitest run`, `npm run build`
+- `uv run ka intake FILE... [--memory F --source NAME]...` resume and memory exports to pending cards (flag `intake`); `uv run ka serve` web UI on 127.0.0.1:8000 (flag `web_ui`); `cd ui && npm install`, `npm run dev` (proxy to :8000), `npx vitest run`, `npm run build`
 
 ## Ka rules
 - No LLM call in the parser or tagging path.

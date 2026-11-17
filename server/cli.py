@@ -258,8 +258,16 @@ def _intake(args: argparse.Namespace) -> int:
         run_documents_job(job, copies, cfg, adapter)
         jobs.append(job)
     if args.memory:
+        names = args.source or []
+        if len(names) not in (0, len(args.memory)):
+            print("error: give one --source per --memory file, in the same order")
+            return 2
+        sources = [
+            (names[n] if names else "assistant", Path(f).read_text())
+            for n, f in enumerate(args.memory)
+        ]
         job = db.new_intake_job("memory", datetime.now())
-        run_memory_job(job, Path(args.memory).read_text(), args.source, cfg, adapter)
+        run_memory_job(job, sources, cfg, adapter)
         jobs.append(job)
     code = 0
     for job in jobs:
@@ -375,8 +383,12 @@ def main(argv: list[str] | None = None) -> int:
     serve.set_defaults(func=_serve)
     intake = sub.add_parser("intake", help="read a resume or pasted memory into pending cards")
     intake.add_argument("files", nargs="*", help="resume and other documents")
-    intake.add_argument("--memory", help="a text file with another assistant's memory export")
-    intake.add_argument("--source", default="assistant", help="name of that assistant")
+    intake.add_argument(
+        "--memory", action="append", help="a memory export file; repeat for each assistant"
+    )
+    intake.add_argument(
+        "--source", action="append", help="assistant name for each --memory, same order"
+    )
     intake.set_defaults(func=_intake)
     ext = sub.add_parser("extract", help="queue new memories from a day's chats")
     ext.add_argument("--date", help="YYYY-MM-DD, default today")
