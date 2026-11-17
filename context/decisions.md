@@ -351,3 +351,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 - A conversation becomes private the moment a finance tool runs in it (or a search returns account, merchant or private-chat data), and stays private. Nightly extraction and category suggestions use the chain too; a memory extracted from a private chat may not contain digits.
 - `private_models` accepts only Ollama, or OpenRouter with `zdr: true`.
 - Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-private-routing.md`.
+
+## Connectors deferred (2026-11-17)
+
+- GitHub, Notion, LinkedIn export and Gmail connectors are out of v1 (owner's call). The Onboarding Sources step keeps "not available yet". The plan stays at `Docs/superpowers/plans/2026-11-17-ka-v1-connectors.md` for later.
