@@ -4,12 +4,13 @@
 
 ## Worked example
 
-A queued item replaces memory M-0001. The card shows "Saved now" (the old text, struck through) next to "Would become". Approve calls `approve_pending`; if the old memory is no longer active the call fails with 409 and the card shows the message and refreshes the list.
+The screen shows one card at a time, as in the design: all cards sit in one grid cell, the first is current and the rest wait hidden below it; the subtitle says "2 of 5. Ka inferred these and needs a yes or no." A queued item replaces memory M-0001, so the card shows "Saved now" next to "Would become". Approve calls `approve_pending`; on success the card slides out to the right (left for Reject) while the next one rises into place, and its id stays out of the queue even if the list refetch is slow, so a decided card never comes back. If the old memory is no longer active the call fails with 409; the card stays and shows the message. With nothing left the screen says "Nothing is waiting for you." with a check.
 
 ## Why this way
 
 - **One code path.** The UI calls `server/memory/pending.py`, so CLI and UI cannot disagree about duplicates or replaced entries.
 - **Optimistic nothing.** The card leaves only after the server answers; a failure is visible next to the item.
+- **One card at a time.** A decision per card, as the design asks, keeps the owner on one question; a bundle that needs another card first (a job before its domains) simply waits behind it.
 
 ## Failure cases
 

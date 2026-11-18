@@ -69,7 +69,7 @@ export type StatementRow = {
   source: string | null
   created_at: string
 }
-type PendingRow = MemoryRow | BundleRow | StatementRow
+export type PendingRow = MemoryRow | BundleRow | StatementRow
 /** One thing Ka reads in an onboarding job (basics, a file, an assistant's export). */
 export type PartState = 'waiting' | 'reading' | 'done' | 'failed'
 export type IntakeJob = {
@@ -105,6 +105,7 @@ type GoogleStatus = {
 }
 export type Settings = {
   models: Record<string, { provider: string; model: string }>
+  private_models: { provider: string; model: string }[]
   flags: Record<string, boolean>
 }
 

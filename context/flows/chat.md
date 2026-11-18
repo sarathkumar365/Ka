@@ -20,6 +20,10 @@ sequenceDiagram
 
 Owner types "relabel account A-01". The model calls `propose_change`; the loop emits an `approval` frame with the diff. The loop thread blocks in `ApprovalBroker.wait`. The owner taps Yes, the browser posts the answer, the thread resumes, `apply()` commits to the data repo, the model writes its answer, and the stream ends with `done`. Each tool result also writes one row to the activity log.
 
+## The Ka entity and the composer
+
+`Entity.tsx` draws the Ka mark as SVG, ported from the design's entity board: one outline walked around a rounded rectangle and pushed out by three sine lobes moving at different speeds (`entityShape.ts`), so the same code is the big wobbling blob on the empty home, a small ring with a bright arc travelling round it while thinking, a short bar sweeping under the box while a tool runs, and the small mark docked in the box. One rAF loop reads the mode from a ref and springs carry the shape between modes, with a softer trail behind; dots on the edge count waiting Pending cards. The empty-home wobble is stronger than the design and swells and slows on a slow cycle. The composer's placeholder is the status ("Thinking", "Searching", "Reply or ask something else"), and its box dims on the empty home. New messages open from 0 to full height; loaded history appears without it.
+
 ## Why this way
 
 - **Loop unchanged.** The loop's `approve` callback is synchronous, so the web layer blocks a worker thread instead of changing the loop. Cost: one thread per running turn.

@@ -1,19 +1,38 @@
-const paths = {
-  menu: 'M3 6h14M3 10h14M3 14h14',
-  bell: 'M5 8a5 5 0 0110 0c0 4 1.5 5 1.5 5h-13S5 12 5 8zM8.5 16a1.5 1.5 0 003 0',
-  gear: 'M10 7a3 3 0 100 6 3 3 0 000-6zM10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M4.3 15.7l1.4-1.4M14.3 5.7l1.4-1.4',
-  plus: 'M10 4v12M4 10h12',
-  close: 'M5 5l10 10M15 5L5 15',
-  chevron: 'M8 6l4 4-4 4',
-  send: 'M10 16V4M5 9l5-5 5 5',
-  check: 'M4 10l4 4 8-8',
-  tool: 'M4 6h12M4 10h12M4 14h7',
-} as const
+import type { ReactNode } from 'react'
 
-export function Icon({ name, size = 20 }: { name: keyof typeof paths; size?: number }) {
+/** 20px line icons from the design (Design/extracted/app.html), stroke set by `.ic`. */
+const shapes = {
+  history: (
+    <>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6v4l2.5 2" />
+    </>
+  ),
+  inbox: (
+    <>
+      <path d="M3 11l2-6h10l2 6v4H3z" />
+      <path d="M3 11h4l1 2h4l1-2h4" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M3 6h8M15 6h2M3 14h2M9 14h8" />
+      <circle cx="13" cy="6" r="2" />
+      <circle cx="7" cy="14" r="2" />
+    </>
+  ),
+  plus: <path d="M10 4v12M4 10h12" />,
+  close: <path d="M5 5l10 10M15 5L5 15" />,
+  chevron: <path d="M8 6l4 4-4 4" />,
+  send: <path d="M10 15V5M6 9l4-4 4 4" />,
+  check: <path d="M5 10.5l3.2 3L15 7" />,
+  dash: <path d="M5 10h10" />,
+} satisfies Record<string, ReactNode>
+
+export function Icon({ name, size = 20 }: { name: keyof typeof shapes; size?: number }) {
   return (
     <svg className="ic" width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
-      <path d={paths[name]} />
+      {shapes[name]}
     </svg>
   )
 }

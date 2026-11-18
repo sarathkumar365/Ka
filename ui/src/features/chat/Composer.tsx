@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 
-export function Composer({ disabled, onSend, docked }: { disabled: boolean; onSend: (t: string) => void; docked: boolean }) {
+export function Composer({
+  disabled,
+  onSend,
+  docked,
+  placeholder,
+  dim,
+}: {
+  disabled: boolean
+  onSend: (t: string) => void
+  docked: boolean
+  placeholder: string
+  dim: boolean
+}) {
   const [text, setText] = useState('')
   const submit = () => {
     const t = text.trim()
@@ -10,11 +22,11 @@ export function Composer({ disabled, onSend, docked }: { disabled: boolean; onSe
     onSend(t)
   }
   return (
-    <div className="composer" data-docked={docked}>
+    <div className="composer" data-docked={docked} data-dim={dim} data-busy={disabled}>
       <input
         type="text"
         aria-label="Message Ka"
-        placeholder="Ask Ka"
+        placeholder={placeholder}
         value={text}
         enterKeyHint="send"
         onChange={(e) => setText(e.target.value)}

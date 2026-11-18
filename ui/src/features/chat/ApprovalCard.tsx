@@ -1,3 +1,5 @@
+import { Icon } from '../../lib/icons'
+
 export function ApprovalCard({
   summary,
   diff,
@@ -9,17 +11,23 @@ export function ApprovalCard({
   decision?: 'yes' | 'no'
   onDecide: (approve: boolean) => void
 }) {
+  // Once decided, the question folds away and one line with an icon says what happened (design).
   return (
-    <div className="card approval">
-      <div className="eyebrow">Needs your approval</div>
-      <div style={{ fontWeight: 500 }}>{summary}</div>
-      {diff && <pre className="mono diff">{diff}</pre>}
+    <div className="card approval" data-decided={decision ?? undefined}>
       {decision ? (
-        <div className="decided">{decision === 'yes' ? 'You approved this.' : 'You declined this. Nothing was changed.'}</div>
+        <div className={`decided ${decision}`}>
+          <Icon name={decision === 'yes' ? 'check' : 'dash'} />
+          <span>{decision === 'yes' ? `Saved. ${summary}` : 'Left as it was.'}</span>
+        </div>
       ) : (
         <>
-          <div className="hint">Nothing is saved until you say yes.</div>
-          <div className="row" style={{ gap: 8 }}>
+          <div className="eyebrow">Needs your approval</div>
+          <div className="ask">
+            <div style={{ fontWeight: 500 }}>{summary}</div>
+            {diff && <div className="diff">{diff}</div>}
+            <div className="hint">Nothing is added to your records until you say yes.</div>
+          </div>
+          <div className="row" style={{ gap: 8, paddingBottom: 2 }}>
             <button className="primary" onClick={() => onDecide(true)}>
               Yes
             </button>

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import type { Decided } from './PendingPage'
 import { api, keys, type BundleRow } from '../../lib/api'
 import { canApprove, toggleItem } from './bundle'
 
@@ -13,7 +14,7 @@ const KIND: Record<BundleRow['section'], string> = {
   types: 'Transaction types',
 }
 
-export function BundleCard({ card }: { card: BundleRow }) {
+export function BundleCard({ card, onDone }: { card: BundleRow; onDone: Decided }) {
   const qc = useQueryClient()
   const [selected, setSelected] = useState(() => card.items.filter((i) => i.selected).map((i) => i.id))
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +24,10 @@ export function BundleCard({ card }: { card: BundleRow }) {
   }
   const act = useMutation({
     mutationFn: (approve: boolean) => (approve ? api.approvePending(card.id, selected) : api.rejectPending(card.id)),
-    onSuccess: refresh,
+    onSuccess: (_, approve) => {
+      onDone(approve ? 'yes' : 'no')
+      refresh()
+    },
     onError: (e: Error) => {
       setError(e.message)
       refresh()
@@ -32,8 +36,8 @@ export function BundleCard({ card }: { card: BundleRow }) {
   const ok = canApprove(card, selected)
   return (
     <div className="card">
-      <div className="eyebrow">{KIND[card.section]}</div>
-      <div style={{ fontWeight: 500 }}>{card.title}</div>
+      <div className="kind">{KIND[card.section]}</div>
+      <div className="ptext">{card.title}</div>
       {card.blocked && <div className="notice">{card.blocked}. Reject this card and tell Ka the fix in chat.</div>}
       {!card.ready && !card.blocked && <div className="notice">Needs Domains first. Approve or reject that card.</div>}
       <ul className="lines">

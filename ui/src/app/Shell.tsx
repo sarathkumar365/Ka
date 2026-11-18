@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { type MouseEvent, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { api, keys } from '../lib/api'
 import { useFirstRunRedirect } from '../features/onboarding/gate'
@@ -21,25 +21,44 @@ export function Shell() {
   })
   useFirstRunRedirect(onboarding, pathname, nav)
   const count = pending.length
+  // Pressing the icon of the screen you are on takes you back to chat, as in the design.
+  const lastChat = useRef('/chat')
+  useEffect(() => {
+    if (pathname.startsWith('/chat')) lastChat.current = pathname
+  }, [pathname])
+  const backToChat = (path: string) => (e: MouseEvent) => {
+    if (!pathname.startsWith(path) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+    e.preventDefault()
+    nav(lastChat.current)
+  }
   return (
     <KaRingLayer>
     <div className="app">
       <header className="bar">
         <div className="row">
           <button className="iconbtn" aria-label="Chat history" onClick={() => setOpen(true)}>
-            <Icon name="menu" />
+            <Icon name="history" />
           </button>
           <button className="textbtn" onClick={() => nav('/chat')}>
             Ka
           </button>
         </div>
         <div className="row">
-          <NavLink to="/pending" className="iconbtn" data-pending-bell aria-label={count ? `Pending, ${count} waiting` : 'Pending'}>
-            <Icon name="bell" />
-            {count > 0 && <span className="badge">{count}</span>}
+          <NavLink
+            to="/pending"
+            className="iconbtn"
+            data-pending-bell
+            aria-label={`Pending, ${count} waiting`}
+            onClick={backToChat('/pending')}
+          >
+            <Icon name="inbox" />
+            {/* always rendered so it can scale in and out (design) */}
+            <span className="badge" data-on={count > 0}>
+              {count || ''}
+            </span>
           </NavLink>
-          <NavLink to="/settings" className="iconbtn" aria-label="Settings">
-            <Icon name="gear" />
+          <NavLink to="/settings" className="iconbtn" aria-label="Settings" onClick={backToChat('/settings')}>
+            <Icon name="sliders" />
           </NavLink>
         </div>
       </header>

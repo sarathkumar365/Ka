@@ -6,11 +6,19 @@ import { streamChat } from '../../lib/stream'
 import { ApprovalCard } from './ApprovalCard'
 import { Composer } from './Composer'
 import { emptyState } from './emptyState'
-import { Entity, entityMode } from './Entity'
+import { Entity } from './Entity'
+import { entityMode } from './entityShape'
 import { Markdown } from './Markdown'
-import { initialState, reduce, type ChatItem } from './state'
+import { initialState, reduce, type ChatItem, type Phase } from './state'
 import { ToolLine } from './ToolLine'
 import { useTypewriter } from './useTypewriter'
+
+/** The composer doubles as the status line while Ka works (design: Thinking, Searching). */
+function placeholderFor(phase: Phase, hasItems: boolean): string {
+  if (phase === 'thinking') return 'Thinking'
+  if (phase === 'searching') return 'Searching'
+  return hasItems ? 'Reply or ask something else' : 'Ask Ka anything'
+}
 
 function Answer({ text, animate }: { text: string; animate: boolean }) {
   return <Markdown text={useTypewriter(text, animate)} />
@@ -27,6 +35,7 @@ export function ChatPage() {
   const scroller = useRef<HTMLDivElement>(null)
   const live = useRef(false) // an answer arrived in this session, so type it out
   const loaded = useRef<string | null>(null) // conversation the screen currently shows
+  const [base, setBase] = useState(0) // items that came with the loaded history: they appear without the reveal
 
   useEffect(() => () => abort.current?.abort(), [])
 
@@ -35,7 +44,10 @@ export function ChatPage() {
     abort.current?.abort()
     live.current = false
     loaded.current = id ?? null
-    if (!id) return dispatch({ type: 'load', conversationId: null, items: [] })
+    if (!id) {
+      setBase(0)
+      return dispatch({ type: 'load', conversationId: null, items: [] })
+    }
     let cancelled = false
     setLoading(true)
     api.conversation(id).then(
@@ -43,6 +55,7 @@ export function ChatPage() {
         if (cancelled) return
         setLoading(false)
         const items: ChatItem[] = c.items.map((i) => (i.kind === 'tool' ? { ...i, result: i.result ?? undefined } : i))
+        setBase(items.length)
         dispatch({ type: 'load', conversationId: id, items })
       },
       () => {
@@ -92,40 +105,53 @@ export function ChatPage() {
   const busy = state.phase !== 'idle' || loading
   const empty = state.items.length === 0
   const lastAssistant = state.items.findLastIndex((i) => i.kind === 'assistant')
+  const row = (it: ChatItem, i: number) => {
+    switch (it.kind) {
+      case 'user':
+        return (
+          <div className="user">
+            <div>{it.text}</div>
+          </div>
+        )
+      case 'tool':
+        return <ToolLine name={it.name} args={it.args} result={it.result} />
+      case 'approval':
+        return (
+          <ApprovalCard
+            summary={it.summary}
+            diff={it.diff}
+            decision={it.decision}
+            onDecide={(a) => decide(it.approvalId, a)}
+          />
+        )
+      case 'notice':
+        return (
+          <div className="notice" role="alert">
+            {it.text}
+          </div>
+        )
+      case 'assistant':
+        return <Answer text={it.text} animate={live.current && i === lastAssistant} />
+    }
+  }
   return (
     <div className="chat col">
       <Entity mode={entityMode(state.phase, !empty)} />
-      <div className="msgs" ref={scroller}>
-        {state.items.map((it, i) => {
-          switch (it.kind) {
-            case 'user':
-              return (
-                <div key={i} className="user">
-                  <div>{it.text}</div>
-                </div>
-              )
-            case 'tool':
-              return <ToolLine key={i} name={it.name} args={it.args} result={it.result} />
-            case 'approval':
-              return (
-                <ApprovalCard
-                  key={i}
-                  summary={it.summary}
-                  diff={it.diff}
-                  decision={it.decision}
-                  onDecide={(a) => decide(it.approvalId, a)}
-                />
-              )
-            case 'notice':
-              return (
-                <div key={i} className="notice" role="alert">
-                  {it.text}
-                </div>
-              )
-            case 'assistant':
-              return <Answer key={i} text={it.text} animate={live.current && i === lastAssistant} />
-          }
-        })}
+      <div
+        className="msgs"
+        ref={scroller}
+        // a new row opens from 0px, so scroll again once it has its full height
+        onAnimationEnd={(e) => {
+          if ((e.target as HTMLElement).classList.contains('reveal'))
+            scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
+        }}
+      >
+        {state.items.map((it, i) => (
+          // new rows open from 0fr to 1fr and fade in (design: 380ms var(--E), opacity 220ms)
+          <div key={i} className={i >= base ? 'reveal' : undefined}>
+            <div>{row(it, i)}</div>
+          </div>
+        ))}
       </div>
       {empty && !busy && (
         <div className="empty">
@@ -147,7 +173,13 @@ export function ChatPage() {
           )}
         </div>
       )}
-      <Composer disabled={busy} onSend={send} docked={!empty || busy} />
+      <Composer
+        disabled={busy}
+        onSend={send}
+        docked={state.phase !== 'searching' && (!empty || busy)}
+        placeholder={placeholderFor(state.phase, !empty)}
+        dim={empty && !busy}
+      />
     </div>
   )
 }

@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, keys } from '../../lib/api'
 
-const when = (at?: string) => (at ? new Date(at).toLocaleString() : 'never')
+const when = (at?: string) => (at ? new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Not yet')
 
+/** "Connected accounts" in the design: one row per account or job, status under the name, action on the right. */
 export function GoogleSection() {
   const qc = useQueryClient()
   const { data } = useQuery({ queryKey: keys.google, queryFn: api.googleStatus, retry: false })
@@ -26,56 +27,61 @@ export function GoogleSection() {
     },
   })
   if (!data) return null // flag off or not configured
+  const login = () => window.location.assign('/api/google/login')
   const drive = data.drive_sync
   const sheet = data.sheet
+  // only a lost sign-in needs Reconnect; offline or a missing Sheet keep the sign-in (flows/google.md)
+  const failed = [drive?.error, sheet?.error].some((e) => e && /reconnect/i.test(e))
   return (
     <section>
-      <h2>Google</h2>
-      {!data.connected ? (
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <div className="sub">Not connected. Drive statements and the Sheet copy wait until you are.</div>
-          <button className="primary" onClick={() => window.location.assign('/api/google/login')}>
+      <h2>Connected accounts</h2>
+      <div className="srow">
+        <div className="stext">
+          <span>Google</span>
+          <span>{data.connected ? (data.email ?? 'Connected') : 'Not connected'}</span>
+        </div>
+        {!data.connected ? (
+          <button className="secondary slim" onClick={login}>
             Connect
           </button>
-        </div>
-      ) : (
-        <ul className="log">
-          <li>
-            <span className="t">Account</span>
-            <span>{data.email ?? 'connected'}</span>
-          </li>
-          <li>
-            <span className="t">Drive sync</span>
-            <span>{drive?.error ? `failed: ${drive.error}` : when(drive?.at)}</span>
-          </li>
-          {(drive?.skipped ?? []).map((s) => (
-            <li key={s}>
-              <span className="t">Skipped</span>
-              <span className="sub">{s}</span>
-            </li>
-          ))}
-          <li>
-            <span className="t">Sheet copy</span>
-            <span>{sheet?.error ? `failed: ${sheet.error}` : when(sheet?.at)}</span>
-          </li>
-        </ul>
+        ) : failed ? (
+          <button className="primary slim" onClick={login}>
+            Reconnect
+          </button>
+        ) : (
+          <button className="secondary slim" disabled={run.isPending} onClick={() => run.mutate('disconnect')}>
+            Disconnect
+          </button>
+        )}
+      </div>
+      {data.connected && (
+        <>
+          <div className="srow">
+            <div className="stext">
+              <span>Drive statements</span>
+              <span>{drive?.error ? `Failed: ${drive.error}` : `Checked ${when(drive?.at)}`}</span>
+              {(drive?.skipped ?? []).map((s) => (
+                <span key={s}>Skipped: {s}</span>
+              ))}
+            </div>
+            <button className="secondary slim" disabled={run.isPending} onClick={() => run.mutate('sync')}>
+              Sync now
+            </button>
+          </div>
+          <div className="srow">
+            <div className="stext">
+              <span>Sheet copy</span>
+              <span>{sheet?.error ? `Failed: ${sheet.error}` : `Copied ${when(sheet?.at)}`}</span>
+            </div>
+            <button className="secondary slim" disabled={run.isPending} onClick={() => run.mutate('push')}>
+              Copy now
+            </button>
+          </div>
+        </>
       )}
       {msg && (
         <div className="notice" role="status">
           {msg}
-        </div>
-      )}
-      {data.connected && (
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <button className="primary" disabled={run.isPending} onClick={() => run.mutate('sync')}>
-            Sync now
-          </button>
-          <button className="secondary" disabled={run.isPending} onClick={() => run.mutate('push')}>
-            Copy to Sheet
-          </button>
-          <button className="secondary" disabled={run.isPending} onClick={() => run.mutate('disconnect')}>
-            Disconnect
-          </button>
         </div>
       )}
     </section>

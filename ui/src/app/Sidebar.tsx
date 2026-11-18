@@ -32,20 +32,20 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
           <Icon name="plus" />
           <span>New chat</span>
         </button>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {groupConversations(data, new Date()).map((g) => (
-            <div key={g.label}>
-              <div className="group">{g.label}</div>
-              {g.rows.map((c) => (
-                <Link key={c.id} to={`/chat/${c.id}`} className="item" aria-current={c.id === id ? 'page' : undefined}>
-                  {c.title}
-                </Link>
-              ))}
-            </div>
-          ))}
+        <div className="list">
+          {groupConversations(data, new Date()).flatMap((g, gi) => [
+            <div key={g.label} className={gi ? 'group later' : 'group'}>
+              {g.label}
+            </div>,
+            ...g.rows.map((c) => (
+              <Link key={c.id} to={`/chat/${c.id}`} className="item" aria-current={c.id === id ? 'page' : undefined}>
+                <span>{c.title}</span>
+              </Link>
+            )),
+          ])}
         </div>
-        <NavLink to="/activity" className="item">
-          Activity log
+        <NavLink to="/activity" className="item foot">
+          <span>Activity log</span>
         </NavLink>
       </aside>
     </>

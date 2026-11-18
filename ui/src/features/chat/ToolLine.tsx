@@ -31,15 +31,20 @@ export function ToolLine({ name, args, result }: { name: string; args: Record<st
   return (
     <div className="toolline">
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Icon name="tool" size={16} />
-        <span>{result === undefined ? `${label}…` : label}</span>
+        <span className="chev" data-open={open}>
+          <Icon name="chevron" />
+        </span>
+        <span>{label}</span>
       </button>
-      {open && (
-        <pre className="mono detail">
-          {JSON.stringify(args)}
-          {result !== undefined && `\n→ ${result.length > 600 ? result.slice(0, 600) + '…' : result}`}
-        </pre>
-      )}
+      {/* collapses with grid rows 0fr/1fr, 320ms, as in the design */}
+      <div className="detailwrap" data-open={open}>
+        <div>
+          <div className="detail">
+            {JSON.stringify(args)}
+            {result !== undefined && `\n→ ${result.length > 600 ? result.slice(0, 600) + '…' : result}`}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
