@@ -43,4 +43,4 @@ flowchart TD
 | 10 tool calls used | later calls get "step limit reached"; answer says where it stopped |
 | Provider down | `AdapterError` after retries; user message stays saved; chat continues |
 
-Interview questions: [ask-question.interview.md](ask-question.interview.md)
+Interview questions: [ask-question.interview.md](interview/ask-question.interview.md)

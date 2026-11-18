@@ -21,4 +21,4 @@ A queued item replaces memory M-0001. The card shows "Saved now" (the old text, 
 
 Source: `server/api/pending.py`, `ui/src/features/pending/*`. Terminal flow: [review-pending.md](review-pending.md)
 
-Interview questions: [pending.interview.md](pending.interview.md)
+Interview questions: [pending.interview.md](interview/pending.interview.md)

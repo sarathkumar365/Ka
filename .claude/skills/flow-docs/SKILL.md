@@ -12,7 +12,7 @@ One doc per flow serves the coding agent and the owner (learning, interviews). U
 2. Mermaid diagram.
 3. One worked example traced step by step with file and function names; explain each technology inline where used.
 4. Failure cases.
-5. Link to `<flow>.interview.md` (interview questions live only there).
+5. Link to `interview/<flow>.interview.md` (interview questions live only there; all of them sit in `context/flows/interview/` so the flows folder stays short).
 
 ## Rules
 - Explain why, never what. Skip anything the code already makes obvious.

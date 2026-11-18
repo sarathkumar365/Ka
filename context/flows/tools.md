@@ -49,4 +49,4 @@ A `search` hit on a highlight carries `job` (`Company|start`), so the model can 
 
 Writer targets include `transaction_type` (in `rules/transaction_types.yaml`, no id; key `bank|type_text`, like a job's `company|start`), so a type rule can be proposed in chat or approved from a suggestion card.
 
-Interview questions: [tools.interview.md](tools.interview.md)
+Interview questions: [tools.interview.md](interview/tools.interview.md)

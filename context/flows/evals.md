@@ -29,4 +29,4 @@ flowchart LR
 
 Fill in after each live run: model, date, passes per case.
 
-Interview questions: [evals.interview.md](evals.interview.md)
+Interview questions: [evals.interview.md](interview/evals.interview.md)

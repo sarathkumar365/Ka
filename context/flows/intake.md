@@ -57,4 +57,4 @@ Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onb
 
 Source: `server/intake/*`, `server/api/intake.py`, `server/api/pending.py`, `server/integrations/data_repo/writer.py` (`plan_batch`), `ui/src/features/onboarding/*`, `ui/src/features/pending/BundleCard.tsx`
 
-Interview questions: [intake.interview.md](intake.interview.md)
+Interview questions: [intake.interview.md](interview/intake.interview.md)

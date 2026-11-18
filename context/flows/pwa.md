@@ -27,6 +27,6 @@ The service worker could not register in the desktop app's embedded browser, and
 
 Source: `ui/vite.config.ts`, `ui/index.html`, `ui/scripts/make-icons.mjs`, `server/api/app.py`
 
-Interview questions: [pwa.interview.md](pwa.interview.md)
+Interview questions: [pwa.interview.md](interview/pwa.interview.md)
 
 **Updates.** The service worker is registered in `ui/src/main.tsx` with `registerSW({ immediate: true })` (`injectRegister: false`). In `autoUpdate` mode the page reloads once a new version takes over, so an old cached screen never lingers after a server update. Unsent onboarding input is guarded by its leave prompt. Not checked in the in-app browser, which does not register service workers.

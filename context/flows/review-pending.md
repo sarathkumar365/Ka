@@ -27,4 +27,4 @@ Pending 4: "Prefers hybrid roles", replaces M-0001. `approve_pending` builds a `
 | Item already handled or unknown id | error, exit 1 |
 | Retire step fails | new entry kept, error names the old id |
 
-Interview questions: [review-pending.interview.md](review-pending.interview.md)
+Interview questions: [review-pending.interview.md](interview/review-pending.interview.md)

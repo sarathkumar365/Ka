@@ -15,4 +15,4 @@
 
 Source: `server/api/settings.py`, `ui/src/features/settings/*`, `ui/src/lib/theme.ts`
 
-Interview questions: [settings.interview.md](settings.interview.md)
+Interview questions: [settings.interview.md](interview/settings.interview.md)

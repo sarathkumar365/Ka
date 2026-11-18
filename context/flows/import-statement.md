@@ -54,4 +54,4 @@ A synthetic row `Mar 25  Point of sale purchase  4.50  495.50`, description `Apo
 
 Not built yet: Drive inbox (plan `2026-11-17-ka-v1-google.md`).
 
-Interview questions: [import-statement.interview.md](import-statement.interview.md)
+Interview questions: [import-statement.interview.md](interview/import-statement.interview.md)

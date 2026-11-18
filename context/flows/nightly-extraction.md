@@ -40,4 +40,4 @@ Scheduling: `server/scheduler.py` registers two APScheduler jobs from the lifesp
 | Private conversation (routing on) | extracted only by the private chain; an item containing a digit is dropped, because approved memories reach every system prompt |
 | Server off for weeks | only the last 7 days are extracted |
 
-Interview questions: [nightly-extraction.interview.md](nightly-extraction.interview.md)
+Interview questions: [nightly-extraction.interview.md](interview/nightly-extraction.interview.md)

@@ -45,4 +45,4 @@ With flag `private_routing` on, every tool registered with `private=True` (finan
 
 Source: `server/api/{chat,approvals,describe}.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts`
 
-Interview questions: [chat.interview.md](chat.interview.md)
+Interview questions: [chat.interview.md](interview/chat.interview.md)

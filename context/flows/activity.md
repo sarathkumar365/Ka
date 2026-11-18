@@ -20,4 +20,4 @@
 
 Source: `server/api/{activity,describe}.py`, `server/store/db.py`, `ui/src/features/activity/*`
 
-Interview questions: [activity.interview.md](activity.interview.md)
+Interview questions: [activity.interview.md](interview/activity.interview.md)
