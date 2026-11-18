@@ -11,6 +11,7 @@ test('each phase takes the geometry from the design prototype', () => {
     '10px',
     '3px',
   ])
+  expect(thinking.bc).toBe('transparent') // ThinkingRing draws the ring instead
   expect(entityStyle('searching', 0, false).l).toBe('20px')
   expect(entityStyle('searching', 0, true).l).toBe('calc(100% - 64px)')
   expect(entityStyle('searching', 0, true).tr).toContain('left 900ms ease-in-out')

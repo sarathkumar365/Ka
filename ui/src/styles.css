@@ -148,10 +148,14 @@ button:disabled { cursor: default; }
 .entity-stage { position: absolute; inset: 0 20px; pointer-events: none; z-index: 1; }
 .entity-trail { position: absolute; border: 1.5px solid var(--lapis); opacity: .45; }
 .entity { position: absolute; border-style: solid; }
-.entity-arc { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--lapis-hi); animation: ka-spin 1.1s linear infinite; transition: opacity 240ms ease; }
 .entity-light { position: absolute; inset: 0; transition: opacity 500ms ease; }
+/* centred on the 20px thinking spot (left 18, top 100% - 62) */
+.thinking-ring { position: absolute; left: 8px; top: calc(100% - 72px); overflow: visible; animation: ka-screen-o 240ms ease 200ms both; }
+.tr-edge { fill: none; stroke: hsl(226,82%,71.6%); stroke-width: 3.6px; }
+.tr-arc { fill: none; stroke: hsl(226,95%,84%); stroke-width: 4px; stroke-linecap: round; }
+[data-theme="light"] .tr-edge { stroke: hsl(226,82%,51.6%); }
+[data-theme="light"] .tr-arc { stroke: var(--lapis); }
 .entity-light > div { position: absolute; top: -5px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 3px; background: #F1F5FF; box-shadow: 0 0 6px rgba(169,189,255,.9); }
-@keyframes ka-spin { to { transform: rotate(360deg); } }
 
 /* pages */
 .page { padding-top: 32px; padding-bottom: 32px; }

@@ -61,7 +61,8 @@ export function entityStyle(mode: EntityMode, beat: number, sw: boolean): Entity
     rad = '1200ms ease-in-out'
   }
   if (mode === 'typing') Object.assign(e, { l: '0px', t: bar, w: '100%', h: '56px', bw: '2px', bg: 'var(--lapis-wash)' })
-  if (mode === 'thinking') Object.assign(e, { l: '18px', t: 'calc(100% - 62px)', w: '20px', h: '20px', r: '10px' })
+  // thinking: the element shrinks into the ring's place and fades out; ThinkingRing draws the ring
+  if (mode === 'thinking') Object.assign(e, { l: '18px', t: 'calc(100% - 62px)', w: '20px', h: '20px', r: '10px', bc: 'transparent' })
   if (mode === 'searching') {
     Object.assign(e, { l: sw ? 'calc(100% - 64px)' : '20px', t: 'calc(100% - 36px)', w: '44px', h: '5px', r: '3px', bw: '2.5px', bg: 'var(--lapis)' })
     left = '900ms ease-in-out'

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { api, keys } from '../../lib/api'
 import { type EntityMode, entityStyle } from './entityStyle'
+import { ThinkingRing } from './ThinkingRing'
 
 const BEAT_MS = 2400 // the design's breathing cycle
 const SWEEP_MS = 900 // the search bar crosses the box in 900ms, then turns back
@@ -9,8 +10,8 @@ const LIGHTS = [0, 1, 2, 3, 4, 5]
 
 /**
  * The Ka entity exactly as in the design prototype (Design/extracted/app.html): one element
- * whose position, size and corners change per phase, a faint copy that trails it, a spinning
- * arc while thinking, and up to six lights for the cards waiting in Pending.
+ * whose position, size and corners change per phase, a faint copy that trails it, the wobbly
+ * thinking ring from the design's entity board, and up to six lights for the cards waiting in Pending.
  */
 export function Entity({ mode }: { mode: EntityMode }) {
   const [beat, setBeat] = useState(0)
@@ -55,13 +56,14 @@ export function Entity({ mode }: { mode: EntityMode }) {
           transition: e.tr,
         }}
       >
-        <div className="entity-arc" style={{ opacity: mode === 'thinking' ? 1 : 0 }} />
         {LIGHTS.map((i) => (
           <div key={i} className="entity-light" style={{ transform: `rotate(${28 + i * 60}deg)`, opacity: i < count ? 1 : 0 }}>
             <div />
           </div>
         ))}
       </div>
+      {/* thinking uses the design's wobbly ring (owner's pick); the element above shrinks into its place and hides */}
+      {mode === 'thinking' && <ThinkingRing />}
     </div>
   )
 }
