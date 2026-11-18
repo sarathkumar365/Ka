@@ -1,7 +1,7 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import type { ChatEvent } from '../features/chat/state'
 
-export type ChatRequest = { conversation_id: string | null; text: string }
+type ChatRequest = { conversation_id: string | null; text: string }
 
 class Fatal extends Error {}
 

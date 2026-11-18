@@ -356,3 +356,9 @@ The coding agent builds against mocks and synthetic data until each item is read
 ## Connectors deferred (2026-11-17)
 
 - GitHub, Notion, LinkedIn export and Gmail connectors are out of v1 (owner's call). The Onboarding Sources step keeps "not available yet". The plan stays at `Docs/superpowers/plans/2026-11-17-ka-v1-connectors.md` for later.
+
+## Onboarding send-once addendum (2026-11-17)
+
+- Onboarding collects everything first and sends it once from a final Send step; one background job reads basics, documents and memory exports together. Plan: `Docs/superpowers/plans/2026-11-17-ka-onboarding-send-once.md`.
+- Owner's calls: unsent input is lost on reload (a warning shows first, nothing is stored in the browser); the default model reads it; after the job a summary shows, then Review in Pending.
+- Motion (redesigned with the owner's `living-transitions` skill): the Send button morphs into the Ka ring, which splits into one arc per part Ka reads (bound to real progress), joins into a solid ring with the card count, then becomes the Pending bell badge. One canvas loop in the Shell; no GSAP, no particles. The new version of the app reloads itself when it takes over.

@@ -1,4 +1,4 @@
-export class ApiError extends Error {
+class ApiError extends Error {
   status: number
   detail: string
   constructor(status: number, detail: string) {
@@ -26,7 +26,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type ConversationRow = { id: string; title: string; started_at: string; last_at: string }
-export type HistoryItem =
+type HistoryItem =
   | { kind: 'user' | 'assistant'; text: string }
   | { kind: 'tool'; name: string; args: Record<string, unknown>; result: string | null }
 export type MemoryRow = {
@@ -38,7 +38,7 @@ export type MemoryRow = {
   source: string | null
   created_at: string
 }
-export type BundleItem = { id: string; label: string; detail: string; selected: boolean }
+type BundleItem = { id: string; label: string; detail: string; selected: boolean }
 export type BundleRow = {
   kind: 'bundle'
   id: number
@@ -69,14 +69,24 @@ export type StatementRow = {
   source: string | null
   created_at: string
 }
-export type PendingRow = MemoryRow | BundleRow | StatementRow
+type PendingRow = MemoryRow | BundleRow | StatementRow
+/** One thing Ka reads in an onboarding job (basics, a file, an assistant's export). */
+export type PartState = 'waiting' | 'reading' | 'done' | 'failed'
 export type IntakeJob = {
   id: string
-  kind: 'documents' | 'memory'
+  kind: 'documents' | 'memory' | 'onboarding'
   status: 'queued' | 'running' | 'done' | 'failed'
   step: string
   message: string
-  result: { cards?: number; skipped?: string[]; warnings?: string[] }
+  result: {
+    cards?: number
+    jobs?: number
+    highlights?: number
+    memories?: number
+    skipped?: string[]
+    warnings?: string[]
+    parts?: { label: string; state: PartState }[]
+  }
   created_at: string
 }
 export type ActivityRow = {
@@ -87,7 +97,7 @@ export type ActivityRow = {
   conversation_id: string | null
 }
 export type OnboardingStatus = { needed: boolean; reason: string }
-export type GoogleStatus = {
+type GoogleStatus = {
   connected: boolean
   email: string | null
   drive_sync: { at: string; new?: number; skipped?: string[]; error?: string } | null
@@ -100,7 +110,6 @@ export type Settings = {
 
 export const keys = {
   conversations: ['conversations'] as const,
-  conversation: (id: string) => ['conversation', id] as const,
   pending: ['pending'] as const,
   activity: ['activity'] as const,
   settings: ['settings'] as const,
@@ -128,14 +137,8 @@ export const api = {
   onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
   completeOnboarding: () => post('/onboarding/complete') as Promise<{ ok: boolean }>,
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
-  pasteMemory: (items: { text: string; source: string }[]) =>
-    call<{ job_id: string }>('/intake/memory', { method: 'POST', body: JSON.stringify({ items }) }),
-  submitBasics: (body: { name: string; city: string; region: string; country: string; role: string }) =>
-    call<{ cards: number }>('/intake/basics', { method: 'POST', body: JSON.stringify(body) }),
-  async uploadDocuments(files: File[]): Promise<{ job_id: string }> {
-    const form = new FormData()
-    files.forEach((f) => form.append('files', f))
-    const res = await fetch('/api/intake/documents', { method: 'POST', body: form })
+  async sendOnboarding(form: FormData): Promise<{ job_id: string }> {
+    const res = await fetch('/api/intake/onboarding', { method: 'POST', body: form })
     if (!res.ok) {
       let detail = res.statusText
       try {

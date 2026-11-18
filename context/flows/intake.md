@@ -1,10 +1,11 @@
 # Flow: onboarding intake
 
-**Summary.** A resume or pasted AI-memory text is read in a background job, turned into by-job cards in Pending, and applied to the data repo only when the owner approves a card. Each approved card is one validated git commit. Start it from the Onboarding screen or with `ka intake FILE...`; both run the same code.
+**Summary.** The Onboarding screen collects basics, documents and pasted AI-memory exports without sending anything, then **Send to Ka** sends it all in one request. One background job reads it, turns it into by-job cards in Pending, and nothing reaches the data repo until the owner approves a card (one validated git commit each). `ka intake FILE...` runs the same reading code from the terminal (there a bad file fails the whole job; on the screen it is a warning).
 
 ```mermaid
 flowchart LR
-    U[upload or paste] --> J[intake_jobs row + worker thread]
+    S[Basics, Documents, Memory steps<br/>held in page state] -->|Send to Ka| U[POST /api/intake/onboarding]
+    U --> J[intake_jobs row + worker thread]
     J --> R[readers: file to text] --> E[extract_resume: one model call]
     E --> G[guards: numbers, dates, forbidden fields] --> Q[queue_draft: bundle cards]
     Q --> P[Pending screen]
@@ -24,9 +25,15 @@ Resume text (synthetic): "Northwind Test Co, Senior Backend Engineer, Mar 2023 t
 - **One writer.** `plan_batch` is the same validation, diff and lock as every other change; no new write path.
 - **Files are deleted** when the job ends. Re-running needs the file again; stored jobs are skipped and only new highlights become a card.
 
+## Send once
+
+`OnboardingPage` keeps one `Draft` (basics, files, memory boxes) in React state; Next and Back only change the step, and no request goes out. The Send step lists what will go and to which provider. `draft.toForm` builds one multipart body (files, `basics` JSON when filled, `memory` JSON when any box has text) for `POST /api/intake/onboarding`, which starts one `onboarding` job: `runner.run_onboarding_job` queues the basics, extracts every document (a bad file is a warning), drops the resume's Name line when the owner typed a name, then reads each memory export. It fails only when nothing at all was produced. The result carries `jobs`, `highlights` and `memories` for the summary line.
+
+The Send step is one continuous object (the `living-transitions` skill): the **Send to Ka** button becomes the Ka ring. `features/onboarding/KaRing.tsx` (mounted in the Shell) draws it on one canvas in the Shell with one render loop; `StepSend` only changes its target through a ref, and every value eases inside the loop (`ring.approach`), so nothing restarts or swaps. Phases: the ring takes the button's exact shape, rounds into the 112 px ring at the stage centre, and splits into one arc per part Ka reads (basics, each file, each assistant). Each arc is bound to that part's real state from the job (`result.parts`: waiting, reading, done, failed): the arc being read pulses, finished arcs stay lit, failed ones dim; the whole ring breathes on a 3.2 s cycle while Ka reads. When the job is done (at least 900 ms after Send, so it never flashes) the arcs join into one ring and the number of cards queued (`result.cards`) counts up inside it, with the summary below. **Review in Pending** shrinks the ring onto the Pending bell's badge (labelled with the count that badge shows), where the real badge takes over (with nothing waiting it simply fades), while Pending fades in behind and its cards rise one by one. A failure morphs the ring back into the button. Reduced motion snaps every change. Leaving with unsent input asks first (`beforeunload`, and a confirm on Skip); nothing is kept in the browser.
+
 ## Memory from several assistants
 
-The Memory step takes up to 5 pasted exports, one box per assistant (Claude, ChatGPT, Gemini, other). `POST /api/intake/memory {items: [{source, text}]}` starts one `memory` job; `runner.run_memory_job` reads each source in turn with `memory_import.import_memory`. Items already queued in this run are listed to the model as "just imported" for the next source, so the same fact told differently by two assistants is kept once; each item carries `import:<assistant>` as its source. A source the model cannot read becomes a warning and the others continue; the job fails only when every source fails. Terminal: `ka intake --memory a.txt --source claude --memory b.txt --source chatgpt`.
+The Memory step takes up to 5 pasted exports, one box per assistant (Claude, ChatGPT, Gemini, other); they go with Send to Ka in the same request as everything else. Each source is read in turn with `memory_import.import_memory`. Items already queued in this run are listed to the model as "just imported" for the next source, so the same fact told differently by two assistants is kept once; each item carries `import:<assistant>` as its source. A source the model cannot read becomes a warning and the others continue; in a memory-only run the job fails only when every source fails. Terminal: `ka intake --memory a.txt --source claude --memory b.txt --source chatgpt`.
 
 ## First run
 
@@ -45,6 +52,8 @@ Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onb
 | Server restart during a job | job `failed: interrupted`; a new upload is allowed |
 | Another job already running | 409 |
 | One of several memory sources fails | warning in the job result; the other sources are still queued |
+| A document or a memory source fails in the onboarding send | warning on the summary; the rest is queued; the job fails only if nothing was produced |
+| Send pressed twice, or another job running | 409; the button is disabled while sending |
 
 Source: `server/intake/*`, `server/api/intake.py`, `server/api/pending.py`, `server/integrations/data_repo/writer.py` (`plan_batch`), `ui/src/features/onboarding/*`, `ui/src/features/pending/BundleCard.tsx`
 

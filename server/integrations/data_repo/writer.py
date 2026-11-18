@@ -94,12 +94,8 @@ def _check_clean(root: Path, paths: list[str]) -> None:
             raise ChangeError(f"{path} has uncommitted changes")
 
 
-def _job_key(job: Any) -> str:
-    return NATURAL_KEYS["job"](job)
-
-
-def _find(items: list, key: str, by_job_key: bool, what: str) -> Any:
-    natural = NATURAL_KEYS.get(what) if by_job_key else None
+def _find(items: list, key: str, natural_key: bool, what: str) -> Any:
+    natural = NATURAL_KEYS.get(what) if natural_key else None
     for item in items:
         if (natural(item) if natural else str(item.get("id"))) == key:
             return item

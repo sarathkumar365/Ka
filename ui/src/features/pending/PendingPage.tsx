@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { api, keys, type MemoryRow } from '../../lib/api'
 import { BundleCard } from './BundleCard'
 import { StatementCard } from './StatementCard'
@@ -53,8 +54,11 @@ function Card({ item }: { item: MemoryRow }) {
 
 export function PendingPage() {
   const { data = [], isLoading } = useQuery({ queryKey: keys.pending, queryFn: api.pending })
+  // arriving from onboarding: the page fades in behind the ring and the cards rise one by one
+  const from = useLocation().state?.from
+  const [arrive] = useState(() => from === 'onboarding')
   return (
-    <div className="col page">
+    <div className={`col page${arrive ? ' arrive' : ''}`}>
       <h1>Pending</h1>
       <p className="sub">{data.length ? 'Ka learned these. Nothing is saved until you approve it.' : ''}</p>
       {!isLoading && data.length === 0 && (
@@ -63,15 +67,12 @@ export function PendingPage() {
           <p className="sub">Ka will ask here when it learns something new.</p>
         </div>
       )}
-      {data.map((i) =>
-        i.kind === 'bundle' ? (
-          <BundleCard key={i.id} card={i} />
-        ) : i.kind === 'statement' ? (
-          <StatementCard key={i.id} card={i} />
-        ) : (
-          <Card key={i.id} item={i} />
-        ),
-      )}
+      {data.map((i, n) => (
+        // arriving from onboarding, cards rise one after another (60 ms apart, capped)
+        <div key={i.id} className="arrivecard" style={arrive ? { animationDelay: `${Math.min(n, 4) * 60}ms` } : undefined}>
+          {i.kind === 'bundle' ? <BundleCard card={i} /> : i.kind === 'statement' ? <StatementCard card={i} /> : <Card item={i} />}
+        </div>
+      ))}
     </div>
   )
 }

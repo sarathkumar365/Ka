@@ -151,7 +151,7 @@ button:disabled { cursor: default; }
 .dot { width: 14px; height: 4px; border-radius: 2px; background: var(--line); transition: width 380ms var(--S), background-color 240ms ease; }
 .dot[data-on="true"] { background: var(--lapis); }
 .dot[data-current="true"] { width: 28px; }
-button.next, .linklike { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; background: var(--surf2); font-weight: 500; display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+button.next { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; background: var(--surf2); font-weight: 500; display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
 .linkbtn { border: 0; background: transparent; color: var(--lapis-hi); padding: 0; text-decoration: underline; }
 .morerow { min-height: 48px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); color: inherit; text-decoration: none; }
 .lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -159,3 +159,24 @@ button.next, .linklike { height: 44px; padding: 0 20px; border: 0; border-radius
 .lines input[type="checkbox"] { margin-top: 5px; width: 18px; height: 18px; accent-color: var(--lapis-btn); flex: none; }
 .lines .tags { display: block; margin: 0; font-size: 13px; }
 .strong { font-weight: 500; }
+
+/* Onboarding send stage: the canvas ring (app/KaRing.tsx) is drawn over .ringslot */
+.sendstage { min-height: 60vh; align-items: center; justify-content: center; text-align: center; gap: 18px; display: flex; flex-direction: column; }
+.ringslot { width: 112px; height: 112px; display: grid; place-items: center; } /* the ring's size: KaRing's goal() reads this rect */
+.ringcount { font: 500 30px/1 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; color: var(--t1); opacity: 0; transition: opacity .3s ease .15s; }
+.ringcount.in { opacity: 1; }
+.ringcaption { min-height: 1.4em; color: var(--t3); font-size: 14px; transition: opacity .2s ease; }
+.ringcaption.out { opacity: 0; height: 0; min-height: 0; overflow: hidden; }
+.summarygroup { display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; transform: translateY(8px); transition: opacity .3s ease .2s, transform .3s ease .2s; }
+.summarygroup.in { opacity: 1; transform: none; }
+.step { transition: opacity .22s ease; }
+.step.leaving { opacity: 0; }
+.ka-ring-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
+.page.arrive { animation: ka-fade .25s ease both; }
+.page.arrive .arrivecard { animation: ka-rise .3s ease both; }
+@keyframes ka-fade { from { opacity: 0; } }
+@keyframes ka-rise { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) {
+  .page.arrive, .page.arrive .arrivecard { animation: none; }
+  .step, .ringcount, .ringcaption, .summarygroup { transition: opacity .15s linear; transform: none; }
+}

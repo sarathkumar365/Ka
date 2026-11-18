@@ -1,6 +1,6 @@
 import type { Phase } from './state'
 
-export type EntityMode = 'empty' | 'thinking' | 'searching' | 'waiting' | 'docked'
+type EntityMode = 'empty' | 'thinking' | 'searching' | 'waiting' | 'docked'
 
 export function entityMode(phase: Phase, hasItems: boolean): EntityMode {
   if (!hasItems && phase === 'idle') return 'empty'

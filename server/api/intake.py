@@ -1,19 +1,17 @@
-"""Onboarding intake: upload documents or paste memory, poll the job, queue basics."""
+"""Onboarding intake: one send with basics, documents and memory exports; poll the job."""
 
 import shutil
 import threading
 from dataclasses import asdict
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from server.agent.adapters import AdapterError
 from server.config import Config
-from server.intake.queue import queue_basics
 from server.intake.readers import SUPPORTED
-from server.intake.runner import run_documents_job, run_memory_job
-from server.integrations.data_repo.loader import load_data
+from server.intake.runner import Basics, run_onboarding_job
 from server.store.db import Db
 
 from .deps import get_cfg, get_db
@@ -32,10 +30,6 @@ def _on(request: Request) -> None:
 class MemoryItem(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
     source: str = Field(default="assistant", min_length=1, max_length=40)
-
-
-class MemoryBody(BaseModel):
-    items: list[MemoryItem] = Field(min_length=1, max_length=5)
 
 
 class BasicsBody(BaseModel):
@@ -61,16 +55,7 @@ def _start(request: Request, db: Db, kind: str) -> str:
         return db.new_intake_job(kind, datetime.now())  # type: ignore[arg-type]
 
 
-@router.post("/intake/documents")
-def upload_documents(
-    request: Request,
-    files: list[UploadFile] = File(...),
-    cfg: Config = Depends(get_cfg),
-    db: Db = Depends(get_db),
-):
-    _on(request)
-    if not 1 <= len(files) <= MAX_FILES:
-        raise HTTPException(400, f"send between 1 and {MAX_FILES} files")
+def _read_files(files: list[UploadFile]) -> list[tuple[str, bytes]]:
     blobs: list[tuple[str, bytes]] = []
     for f in files:
         name = (f.filename or "file").replace("\\", "/").split("/")[-1]
@@ -83,8 +68,10 @@ def upload_documents(
         if len(data) > MAX_BYTES:
             raise HTTPException(400, f"{name}: larger than 10 MB")
         blobs.append((name, data))
-    adapter = _adapter(request)
-    job_id = _start(request, db, "documents")
+    return blobs
+
+
+def _save(cfg: Config, db: Db, job_id: str, blobs: list[tuple[str, bytes]]) -> list:
     folder = cfg.data_repo / "local" / "intake" / job_id
     try:
         folder.mkdir(parents=True)
@@ -97,43 +84,7 @@ def upload_documents(
         shutil.rmtree(folder, ignore_errors=True)
         db.update_intake_job(job_id, status="failed", message="could not save the upload")
         raise HTTPException(500, "could not save the upload") from None
-    threading.Thread(
-        target=run_documents_job, args=(job_id, paths, cfg, adapter), daemon=True
-    ).start()
-    return {"job_id": job_id}
-
-
-@router.post("/intake/memory")
-def paste_memory(
-    body: MemoryBody,
-    request: Request,
-    cfg: Config = Depends(get_cfg),
-    db: Db = Depends(get_db),
-):
-    _on(request)
-    adapter = _adapter(request)
-    job_id = _start(request, db, "memory")
-    threading.Thread(
-        target=run_memory_job,
-        args=(job_id, [(i.source, i.text) for i in body.items], cfg, adapter),
-        daemon=True,
-    ).start()
-    return {"job_id": job_id}
-
-
-@router.post("/intake/basics")
-def basics(
-    body: BasicsBody,
-    request: Request,
-    cfg: Config = Depends(get_cfg),
-    db: Db = Depends(get_db),
-):
-    _on(request)
-    data = load_data(cfg.data_repo)
-    n = queue_basics(
-        db, data, body.name, body.city, body.region, body.country, body.role, datetime.now()
-    )
-    return {"cards": n}
+    return paths
 
 
 @router.get("/intake/{job_id}")
@@ -143,3 +94,55 @@ def job_status(job_id: str, request: Request, db: Db = Depends(get_db)):
     if job is None:
         raise HTTPException(404, "no such job")
     return asdict(job)
+
+
+MEMORY_LIST = TypeAdapter(list[MemoryItem])
+BASICS = TypeAdapter(BasicsBody)
+
+
+def _json_field(adapter: TypeAdapter, raw: str | None, what: str):
+    if not raw:
+        return None
+    try:
+        return adapter.validate_json(raw)
+    except ValidationError:
+        raise HTTPException(422, f"{what} is not valid") from None
+
+
+@router.post("/intake/onboarding")
+def send_onboarding(
+    request: Request,
+    files: list[UploadFile] = File(default=[]),
+    basics: str | None = Form(default=None),
+    memory: str | None = Form(default=None),
+    cfg: Config = Depends(get_cfg),
+    db: Db = Depends(get_db),
+):
+    """Everything from the onboarding screen in one request, read by one job."""
+    _on(request)
+    if len(files) > MAX_FILES:
+        raise HTTPException(400, f"send at most {MAX_FILES} files")
+    body = _json_field(BASICS, basics, "basics")
+    items = _json_field(MEMORY_LIST, memory, "memory") or []
+    if len(items) > 5:
+        raise HTTPException(422, "at most 5 memory exports")
+    filled = body is not None and any(v.strip() for v in body.model_dump().values())
+    if not files and not filled and not items:
+        raise HTTPException(400, "nothing to send")
+    blobs = _read_files(files)
+    adapter = _adapter(request)
+    job_id = _start(request, db, "onboarding")
+    paths = _save(cfg, db, job_id, blobs) if blobs else []
+    threading.Thread(
+        target=run_onboarding_job,
+        args=(
+            job_id,
+            paths,
+            Basics(**body.model_dump()) if filled else None,
+            [(i.source, i.text) for i in items],
+            cfg,
+            adapter,
+        ),
+        daemon=True,
+    ).start()
+    return {"job_id": job_id}

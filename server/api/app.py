@@ -29,6 +29,10 @@ class SPAStatic(StaticFiles):
 
 
 UPLOAD_LIMIT = 5 * 10 * 1024 * 1024 + 1024 * 1024  # five files of 10 MB plus form overhead
+# The onboarding send also carries up to five 60k memory pastes and the basics.
+UPLOAD_PATHS = {
+    "/api/intake/onboarding": UPLOAD_LIMIT + 5 * 60_000 + 64 * 1024,
+}
 UI_DIST = Path(__file__).resolve().parents[2] / "ui" / "dist"
 
 
@@ -60,11 +64,11 @@ def create_app(
     @app.middleware("http")
     async def cap_upload_size(request, call_next):
         # Starlette spools a multipart body to disk before the handler runs, so refuse early.
-        if request.url.path == "/api/intake/documents" and request.method == "POST":
+        if request.url.path in UPLOAD_PATHS and request.method == "POST":
             length = request.headers.get("content-length")
             if length is None:
                 return JSONResponse({"detail": "content-length required"}, status_code=411)
-            if int(length) > UPLOAD_LIMIT:
+            if int(length) > UPLOAD_PATHS[request.url.path]:
                 return JSONResponse({"detail": "upload is too large"}, status_code=413)
         return await call_next(request)
 

@@ -155,3 +155,137 @@ def test_second_file_failing_queues_nothing(setup, tmp_path):
     run_documents_job(job, [resume, second], cfg, adapter, lambda: NOW)
     assert db.get_intake_job(job).status == "failed"
     assert db.list_pending() == []
+
+
+def test_onboarding_job_runs_only_what_was_given(setup):
+    from server.intake.runner import run_onboarding_job
+
+    cfg, db, _ = setup
+    job = db.new_intake_job("onboarding", NOW)
+    items = json.dumps([{"type": "fact", "text": "Speaks French"}])
+    run_onboarding_job(
+        job, [], None, [("claude", "pasted")], cfg, FakeAdapter([Reply(text=items)]), lambda: NOW
+    )
+    got = db.get_intake_job(job)
+    assert got.status == "done"
+    assert got.result["memories"] == 1 and got.result["jobs"] == 0
+
+
+def test_onboarding_job_all_parts(setup):
+    from server.agent.adapters import AdapterError
+    from server.intake.runner import Basics, run_onboarding_job
+
+    cfg, db, resume = setup
+    job = db.new_intake_job("onboarding", NOW)
+
+    class Script:
+        def __init__(self):
+            self.n = 0
+
+        def complete(self, messages, tools):
+            self.n += 1
+            if self.n == 1:
+                return Reply(text=GOOD)
+            if self.n == 2:
+                return Reply(text=json.dumps([{"type": "fact", "text": "Likes chess"}]))
+            raise AdapterError("timeout")
+
+    basics = Basics(name="Avery Quinn", city="Newtown", region="", country="", role="Engineer")
+    sources = [("claude", "a"), ("chatgpt", "b")]
+    run_onboarding_job(job, [resume], basics, sources, cfg, Script(), lambda: NOW)
+    got = db.get_intake_job(job)
+    assert got.status == "done"
+    assert got.result["jobs"] == 1 and got.result["memories"] == 1
+    assert any("chatgpt" in w for w in got.result["warnings"])
+    assert any(c.payload.get("section") == "basics" for c in db.list_pending())
+    assert not resume.exists()
+
+
+def test_onboarding_job_nothing_usable_fails(setup, tmp_path):
+    from server.agent.adapters import AdapterError
+    from server.intake.runner import run_onboarding_job
+
+    cfg, db, _ = setup
+    bad = tmp_path / "x.pdf"
+    bad.write_bytes(b"not a pdf")
+    job = db.new_intake_job("onboarding", NOW)
+
+    class Down:
+        def complete(self, messages, tools):
+            raise AdapterError("down")
+
+    run_onboarding_job(job, [bad], None, [("claude", "a")], cfg, Down(), lambda: NOW)
+    assert db.get_intake_job(job).status == "failed"
+
+
+def test_onboarding_basics_name_wins_over_resume_name(setup):
+    from server.intake.runner import Basics, run_onboarding_job
+
+    cfg, db, resume = setup
+    job = db.new_intake_job("onboarding", NOW)
+    basics = Basics(name="Avery Q", city="", region="", country="", role="")
+    other = json.loads(GOOD)
+    other["profile"]["name"] = "A. Quinn"
+    reply = Reply(text=json.dumps(other))
+    run_onboarding_job(job, [resume], basics, [], cfg, FakeAdapter([reply]), lambda: NOW)
+    names = [
+        i
+        for c in db.list_pending()
+        if c.payload.get("section") == "basics"
+        for i in c.payload["items"]
+        if i["label"].lower().startswith("name")
+    ]
+    assert len(names) == 1
+
+
+def test_onboarding_job_nothing_new_is_done_not_failed(setup):
+    from server.intake.runner import run_onboarding_job
+
+    cfg, db, _ = setup
+    job = db.new_intake_job("onboarding", NOW)
+    run_onboarding_job(
+        job, [], None, [("claude", "small talk")], cfg, FakeAdapter([Reply(text="[]")]), lambda: NOW
+    )
+    got = db.get_intake_job(job)
+    assert got.status == "done" and got.result["memories"] == 0
+
+
+def test_onboarding_job_reports_each_part(setup):
+    from server.agent.adapters import AdapterError
+    from server.intake.runner import Basics, run_onboarding_job
+
+    cfg, db, resume = setup
+    job = db.new_intake_job("onboarding", NOW)
+
+    class Script:
+        n = 0
+
+        def complete(self, messages, tools):
+            Script.n += 1
+            if Script.n == 1:
+                return Reply(text=GOOD)
+            raise AdapterError("down")
+
+    basics = Basics(name="Avery Q", city="", region="", country="", role="")
+    run_onboarding_job(job, [resume], basics, [("claude", "a")], cfg, Script(), lambda: NOW)
+    parts = db.get_intake_job(job).result["parts"]
+    assert parts == [
+        {"label": "Basics", "state": "done"},
+        {"label": "resume.txt", "state": "done"},
+        {"label": "claude", "state": "failed"},
+    ]
+
+
+def test_onboarding_parts_without_basics(setup):
+    from server.intake.runner import run_onboarding_job
+
+    cfg, db, resume = setup
+    job = db.new_intake_job("onboarding", NOW)
+    items = json.dumps([{"type": "fact", "text": "Likes tea"}])
+    adapter = FakeAdapter([Reply(text=GOOD), Reply(text=items)])
+    run_onboarding_job(job, [resume], None, [("chatgpt", "a")], cfg, adapter, lambda: NOW)
+    parts = db.get_intake_job(job).result["parts"]
+    assert parts == [
+        {"label": "resume.txt", "state": "done"},
+        {"label": "chatgpt", "state": "done"},
+    ]

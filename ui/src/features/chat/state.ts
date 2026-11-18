@@ -15,7 +15,7 @@ export type ChatItem =
   | { kind: 'notice'; text: string }
 
 export type Phase = 'idle' | 'thinking' | 'searching' | 'answering' | 'waiting'
-export type ChatState = { items: ChatItem[]; phase: Phase; conversationId: string | null }
+type ChatState = { items: ChatItem[]; phase: Phase; conversationId: string | null }
 export type ChatAction =
   | ChatEvent
   | { type: 'send'; text: string }

@@ -48,7 +48,7 @@ def on(cfg, make_client):
 
 def upload(client, name="resume.txt", content=b"Avery Quinn. Globex Corp, Engineer, 2024-02.", n=1):
     files = [("files", (name if i == 0 else f"{i}{name}", content, "text/plain")) for i in range(n)]
-    return client.post("/api/intake/documents", files=files)
+    return client.post("/api/intake/onboarding", files=files)
 
 
 def wait_done(client, job_id):
@@ -101,34 +101,57 @@ def test_bad_uploads_are_refused_and_cleaned_up(on, cfg):
     assert not folder.exists() or not any(folder.rglob("*.*"))
 
 
-def test_second_job_while_running_is_409(on, cfg):
+def test_memory_items_are_validated(on):
     c = on()
-    db = Db(cfg.db_path)
-    db.update_intake_job(db.new_intake_job("documents", datetime.now()), status="running")
-    assert upload(c).status_code == 409
-    one = {"items": [{"text": "x", "source": "claude"}]}
-    assert c.post("/api/intake/memory", json=one).status_code == 409
-
-
-def test_basics_and_memory_endpoints(on):
-    c = on()
-    r = c.post(
-        "/api/intake/basics",
-        json={"name": "Avery Quinn", "city": "Newtown", "role": "Platform engineer"},
-    )
-    assert r.status_code == 200 and r.json()["cards"] >= 1
-    empty = {"items": [{"text": "", "source": "claude"}]}
-    assert c.post("/api/intake/memory", json=empty).status_code == 422
-    too_many = {"items": [{"text": "x", "source": f"s{n}"} for n in range(6)]}
-    assert c.post("/api/intake/memory", json=too_many).status_code == 422
-    assert c.post("/api/intake/memory", json={"items": []}).status_code == 422
+    empty = [{"text": "", "source": "claude"}]
+    assert send(c, files=0, memory=empty).status_code == 422
+    too_many = [{"text": "x", "source": f"s{n}"} for n in range(6)]
+    assert send(c, files=0, memory=too_many).status_code == 422
+    assert send(c, files=0, basics="not json").status_code == 422
     assert c.get("/api/intake/I-nope").status_code == 404
 
 
-def test_oversize_body_is_refused_before_it_is_read(on, cfg):
+def send(client, files=1, basics=None, memory=None):
+    parts = [
+        ("files", (f"r{i}.txt", b"Avery Quinn. Globex Corp, Engineer, 2024-02.", "text/plain"))
+        for i in range(files)
+    ]
+    data = {}
+    if basics is not None:
+        data["basics"] = json.dumps(basics)
+    if memory is not None:
+        data["memory"] = json.dumps(memory)
+    return client.post("/api/intake/onboarding", files=parts or None, data=data)
+
+
+def test_onboarding_send_starts_one_job(on, cfg):
+    c = on()
+    r = send(c, basics={"name": "Avery Q"}, memory=[{"source": "claude", "text": "x"}])
+    assert r.status_code == 200
+    job = wait_done(c, r.json()["job_id"])
+    assert job["kind"] == "onboarding" and job["status"] == "done", job
+    assert [p["label"] for p in job["result"]["parts"]] == ["Basics", "r0.txt", "claude"]
+    assert any(x.get("section") == "basics" for x in c.get("/api/pending").json())
+
+
+def test_onboarding_send_needs_something(on):
+    c = on()
+    assert send(c, files=0).status_code == 400
+    assert send(c, files=0, basics={"name": "x"}, memory="not a list").status_code == 422
+
+
+def test_onboarding_send_while_running_is_409(on, cfg):
+    c = on()
+    db = Db(cfg.db_path)
+    db.update_intake_job(db.new_intake_job("documents", datetime.now()), status="running")
+    assert send(c).status_code == 409
+
+
+def test_onboarding_send_oversize_refused_early(on):
     c = on()
     r = c.post(
-        "/api/intake/documents",
-        files=[("files", ("big.txt", b"a" * (52 * 1024 * 1024), "text/plain"))],
+        "/api/intake/onboarding",
+        content=b"x",
+        headers={"content-type": "multipart/form-data; boundary=b", "content-length": str(10**9)},
     )
     assert r.status_code == 413

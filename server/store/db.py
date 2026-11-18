@@ -230,7 +230,9 @@ class Db:
                 (key, value),
             )
 
-    def new_intake_job(self, kind: Literal["documents", "memory"], now: datetime) -> str:
+    def new_intake_job(
+        self, kind: Literal["documents", "memory", "onboarding"], now: datetime
+    ) -> str:
         job_id = f"I-{now:%Y%m%d}-{secrets.token_hex(2)}"
         with self.conn:
             self.conn.execute(

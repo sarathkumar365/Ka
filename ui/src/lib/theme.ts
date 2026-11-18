@@ -1,4 +1,4 @@
-export type Theme = 'dark' | 'light'
+type Theme = 'dark' | 'light'
 const KEY = 'ka-theme'
 
 export function getTheme(): Theme {

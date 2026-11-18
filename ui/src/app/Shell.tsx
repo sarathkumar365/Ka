@@ -5,6 +5,7 @@ import { api, keys } from '../lib/api'
 import { useFirstRunRedirect } from '../features/onboarding/gate'
 import { Icon } from '../lib/icons'
 import { Drawer } from './Sidebar'
+import { KaRingLayer } from '../features/onboarding/KaRing'
 
 export function Shell() {
   const [open, setOpen] = useState(false)
@@ -21,6 +22,7 @@ export function Shell() {
   useFirstRunRedirect(onboarding, pathname, nav)
   const count = pending.length
   return (
+    <KaRingLayer>
     <div className="app">
       <header className="bar">
         <div className="row">
@@ -32,7 +34,7 @@ export function Shell() {
           </button>
         </div>
         <div className="row">
-          <NavLink to="/pending" className="iconbtn" aria-label={count ? `Pending, ${count} waiting` : 'Pending'}>
+          <NavLink to="/pending" className="iconbtn" data-pending-bell aria-label={count ? `Pending, ${count} waiting` : 'Pending'}>
             <Icon name="bell" />
             {count > 0 && <span className="badge">{count}</span>}
           </NavLink>
@@ -46,5 +48,6 @@ export function Shell() {
       </main>
       <Drawer open={open} onClose={() => setOpen(false)} />
     </div>
+    </KaRingLayer>
   )
 }

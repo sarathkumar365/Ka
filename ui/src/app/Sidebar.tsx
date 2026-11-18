@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 
 const WEEK = 7 * 24 * 3600 * 1000
 
-export function groupConversations(rows: ConversationRow[], now: Date) {
+function groupConversations(rows: ConversationRow[], now: Date) {
   const recent = rows.filter((r) => now.getTime() - new Date(r.last_at).getTime() < WEEK)
   const older = rows.filter((r) => !recent.includes(r))
   return [
