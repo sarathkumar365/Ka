@@ -11,7 +11,7 @@ export function StepBasics({ value, onChange }: { value: BasicsDraft; onChange: 
         <input value={value.name} onChange={set('name')} />
       </label>
       <label className="field">
-        <span>Where do you live? (city, region, country)</span>
+        <span>Where do you live?</span>
         <input value={value.where} onChange={set('where')} />
       </label>
       <label className="field">

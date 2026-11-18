@@ -134,18 +134,28 @@ button:disabled { cursor: default; }
 .empty { position: absolute; left: 20px; right: 20px; top: calc(40% + 104px); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
 .composer { position: absolute; left: 20px; right: 20px; bottom: calc(24px + env(safe-area-inset-bottom)); height: 56px; }
 /* the box chrome is its own layer so it can dim on the empty home without dimming the text (design chromeO) */
-.composer::before { content: ""; position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surf); transition: opacity 300ms ease; }
-.composer[data-dim="true"]::before { opacity: .7; }
+.composer::before { content: ""; position: absolute; inset: 0; z-index: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surf); transition: opacity 300ms ease; }
+.composer[data-chrome="dim"]::before { opacity: .7; }
+.composer[data-chrome="off"]::before { opacity: 0; }
+/* chrome under the entity, text and send button over it, as in the design's stacking */
+.composer input, .composer button { z-index: 2; }
 .composer input { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0 60px 0 20px; border: 0; border-radius: 12px; background: transparent; outline: none; font-size: 16px; transition: padding 300ms var(--E); }
 .composer[data-docked="true"] input { padding-left: 56px; }
 .composer button { position: absolute; right: 6px; bottom: 6px; transition: opacity 200ms ease; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--t2); }
 .composer[data-busy="true"] button { opacity: .3; }
-.entity { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; z-index: 1; pointer-events: none; }
-.entity-glow { position: absolute; left: 0; top: 0; width: 100px; height: 100px; border-radius: 50%; filter: blur(22px); opacity: 0; z-index: 1; pointer-events: none; will-change: transform, opacity; transform-origin: 50px 50px; }
+
+/* the Ka entity, as in the design prototype: positioned inside the 720px chat area */
+.entity-stage { position: absolute; inset: 0 20px; pointer-events: none; z-index: 1; }
+.entity-trail { position: absolute; border: 1.5px solid var(--lapis); opacity: .45; }
+.entity { position: absolute; border-style: solid; }
+.entity-arc { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--lapis-hi); animation: ka-spin 1.1s linear infinite; transition: opacity 240ms ease; }
+.entity-light { position: absolute; inset: 0; transition: opacity 500ms ease; }
+.entity-light > div { position: absolute; top: -5px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 3px; background: #F1F5FF; box-shadow: 0 0 6px rgba(169,189,255,.9); }
+@keyframes ka-spin { to { transform: rotate(360deg); } }
 
 /* pages */
 .page { padding-top: 32px; padding-bottom: 32px; }
-.page h1 { margin: 0 0 4px; font-size: 20px; font-weight: 500; }
+.page h1 { margin: 0; font-size: 20px; font-weight: 500; }
 .page h2 { margin: 28px 0 8px; font-size: 14px; font-weight: 500; color: var(--t2); }
 .sub { color: var(--t2); font-size: 14px; margin: 0 0 12px; }
 .log { list-style: none; margin: 0; padding: 0; }
@@ -199,7 +209,17 @@ button.slim { flex: none; min-width: 0; padding: 0 16px; }
 .switch[aria-checked="true"] span::after { transform: translateX(18px); background: var(--bg); }
 
 /* onboarding and bundle cards */
-.onboarding .step { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; }
+.onboarding { display: flex; flex-direction: column; gap: 32px; }
+.onboarding .step { display: flex; flex-direction: column; gap: 20px; }
+.onboarding .step .sub { margin: 0; color: var(--t3); }
+.steplabel { font-size: 14px; color: var(--t2); }
+.obstack { display: grid; position: relative; }
+.obstep { grid-area: 1 / 1; align-self: start; min-width: 0; transition: opacity 240ms ease, transform 420ms var(--S), visibility 0s linear 0s; }
+.obstep[data-pos="before"], .obstep[data-pos="after"] { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 260ms; position: absolute; inset: 0 0 auto; } /* only the current step sets the height */
+.obstep[data-pos="before"] { transform: translateX(-40px); }
+.obstep[data-pos="after"] { transform: translateX(40px); }
+.onboarding button.back { min-width: 0; transition: opacity 200ms ease; }
+.onboarding button.back:disabled { opacity: .35; }
 .onboarding h1 { font-size: 28px; line-height: 1.3; }
 .lead { margin: 0; color: var(--t2); }
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -208,8 +228,8 @@ button.slim { flex: none; min-width: 0; padding: 0 16px; }
 .field textarea { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surf); line-height: 1.6; resize: vertical; font-size: 16px; }
 .dropzone { min-height: 160px; padding: 24px; border: 1px dashed var(--t3); border-radius: 12px; background: transparent; color: var(--t2); }
 .srcrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
-.dot { width: 14px; height: 4px; border-radius: 2px; background: var(--line); transition: width 380ms var(--S), background-color 240ms ease; }
-.dot[data-on="true"] { background: var(--lapis); }
+.dot { width: 10px; height: 4px; border-radius: 2px; background: var(--line); transition: width 380ms var(--S), background-color 240ms ease; }
+.dot[data-on="true"] { background: var(--t1); }
 .dot[data-current="true"] { width: 28px; }
 button.next { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; background: var(--surf2); font-weight: 500; display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
 .linkbtn { border: 0; background: transparent; color: var(--lapis-hi); padding: 0; text-decoration: underline; }

@@ -45,34 +45,37 @@ export function OnboardingPage() {
               <div key={l} className="dot" data-on={i <= step} data-current={i === step} />
             ))}
           </div>
-          <div className="sub" style={{ margin: 0 }}>
-            Step {step + 1} of {LABELS.length}: {LABELS[step]}
+          <div className="steplabel">
+            Step {step + 1} of {LABELS.length}
           </div>
         </div>
       )}
-      <div hidden={step !== 0}>
-        <StepBasics value={draft.basics} onChange={(basics) => setDraft({ ...draft, basics })} />
+      {/* steps share one grid cell and slide 40px left or right, as in the design */}
+      <div className="obstack">
+        {[
+          <StepBasics key="b" value={draft.basics} onChange={(basics) => setDraft({ ...draft, basics })} />,
+          <StepDocuments key="d" files={draft.files} onChange={(files) => setDraft({ ...draft, files })} />,
+          <StepSources key="s" />,
+          <StepMemory key="m" entries={draft.memory} onChange={(memory) => setDraft({ ...draft, memory })} />,
+        ].map((el, i) => (
+          <div key={i} className="obstep" data-pos={i === step ? 'current' : i < step ? 'before' : 'after'} inert={i !== step}>
+            {el}
+          </div>
+        ))}
+        {last && (
+          <div className="obstep" data-pos="current">
+            <StepSend draft={draft} onPhase={onPhase} onReview={() => leave('/pending', { from: 'onboarding' })} />
+          </div>
+        )}
       </div>
-      <div hidden={step !== 1}>
-        <StepDocuments files={draft.files} onChange={(files) => setDraft({ ...draft, files })} />
-      </div>
-      <div hidden={step !== 2}>
-        <StepSources />
-      </div>
-      <div hidden={step !== 3}>
-        <StepMemory entries={draft.memory} onChange={(memory) => setDraft({ ...draft, memory })} />
-      </div>
-      {last && <StepSend draft={draft} onPhase={onPhase} onReview={() => leave('/pending', { from: 'onboarding' })} />}
       {!busy && (
-        <div className="row" style={{ gap: 8, marginTop: 24 }}>
-          {step > 0 && (
-            <button className="secondary" onClick={() => setStep(step - 1)}>
-              Back
-            </button>
-          )}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="secondary back" disabled={step === 0} onClick={() => setStep(step - 1)}>
+            Back
+          </button>
           {!last && (
             <button className="next" onClick={() => setStep(step + 1)}>
-              Next
+              Continue
             </button>
           )}
           <button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={skip}>

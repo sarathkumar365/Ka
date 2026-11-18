@@ -39,7 +39,7 @@ export function StepMemory({ entries, onChange }: { entries: MemoryEntry[]; onCh
           </div>
           <label className="field">
             <span>Pasted memory export from {e.source}</span>
-            <textarea rows={6} value={e.text} maxLength={60000} onChange={(ev) => update(e.id, { text: ev.target.value })} />
+            <textarea rows={7} value={e.text} maxLength={60000} onChange={(ev) => update(e.id, { text: ev.target.value })} />
           </label>
         </div>
       ))}

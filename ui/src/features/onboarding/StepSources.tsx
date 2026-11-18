@@ -10,7 +10,7 @@ export function StepSources() {
             <span className="sub" style={{ margin: 0 }}>
               Not available yet
             </span>
-            <button className="secondary" disabled>
+            <button className="secondary slim" disabled>
               Connect
             </button>
           </div>

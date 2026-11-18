@@ -7,16 +7,26 @@ import { ApprovalCard } from './ApprovalCard'
 import { Composer } from './Composer'
 import { emptyState } from './emptyState'
 import { Entity } from './Entity'
-import { entityMode } from './entityShape'
+import { entityMode } from './entityStyle'
 import { Markdown } from './Markdown'
 import { initialState, reduce, type ChatItem, type Phase } from './state'
 import { ToolLine } from './ToolLine'
 import { useTypewriter } from './useTypewriter'
 
 /** The composer doubles as the status line while Ka works (design: Thinking, Searching). */
-function placeholderFor(phase: Phase, hasItems: boolean): string {
+const RUNNING: Record<string, string> = {
+  search_transactions: 'Searching transactions',
+  sum_transactions: 'Adding up transactions',
+  finance_summary: 'Looking at your spending',
+  list_statements: 'Listing statements',
+  search_conversations: 'Searching past chats',
+  get_jobs: 'Reading your jobs',
+  get_profile: 'Reading your profile',
+}
+
+function placeholderFor(phase: Phase, hasItems: boolean, tool?: string): string {
   if (phase === 'thinking') return 'Thinking'
-  if (phase === 'searching') return 'Searching'
+  if (phase === 'searching') return (tool && RUNNING[tool]) || 'Searching'
   return hasItems ? 'Reply or ask something else' : 'Ask Ka anything'
 }
 
@@ -35,6 +45,7 @@ export function ChatPage() {
   const scroller = useRef<HTMLDivElement>(null)
   const live = useRef(false) // an answer arrived in this session, so type it out
   const loaded = useRef<string | null>(null) // conversation the screen currently shows
+  const [typing, setTyping] = useState(false) // composer focused on the empty home: the entity becomes its border
   const [base, setBase] = useState(0) // items that came with the loaded history: they appear without the reveal
 
   useEffect(() => () => abort.current?.abort(), [])
@@ -104,6 +115,7 @@ export function ChatPage() {
 
   const busy = state.phase !== 'idle' || loading
   const empty = state.items.length === 0
+  const lastTool = state.items.findLast((i): i is Extract<ChatItem, { kind: 'tool' }> => i.kind === 'tool')?.name
   const lastAssistant = state.items.findLastIndex((i) => i.kind === 'assistant')
   const row = (it: ChatItem, i: number) => {
     switch (it.kind) {
@@ -136,7 +148,7 @@ export function ChatPage() {
   }
   return (
     <div className="chat col">
-      <Entity mode={entityMode(state.phase, !empty)} />
+      <Entity mode={entityMode(state.phase, !empty, typing)} />
       <div
         className="msgs"
         ref={scroller}
@@ -177,8 +189,9 @@ export function ChatPage() {
         disabled={busy}
         onSend={send}
         docked={state.phase !== 'searching' && (!empty || busy)}
-        placeholder={placeholderFor(state.phase, !empty)}
-        dim={empty && !busy}
+        placeholder={placeholderFor(state.phase, !empty, lastTool)}
+        chrome={!empty || busy ? 'on' : typing ? 'off' : 'dim'}
+        onFocusChange={setTyping}
       />
     </div>
   )
