@@ -1,6 +1,6 @@
 # Flow: activity
 
-**Summary.** Every tool call in a web chat and every pending approval or rejection writes one sentence to the `activity` table. `GET /api/activity` returns them newest first; the screen groups them by day.
+**Summary.** Every tool call in a web chat and every pending approval or rejection writes one sentence to the `activity` table. `GET /api/activity` returns them newest first; the screen groups them by day. Sheet copy failures (`sheet`) and nightly extraction runs or failures (`extraction`) also write a row.
 
 ## Worked example
 

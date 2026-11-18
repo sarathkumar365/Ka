@@ -309,8 +309,8 @@ The coding agent builds against mocks and synthetic data until each item is read
 
 ## UI addendum (2026-11-17)
 
-- Screens built: chat, pending, activity, settings. The onboarding screen is deferred (owner's call); statement upload endpoints are dropped with it, statements stay in the folder.
-- Settings is read-only except the theme. Models and flags are edited in `config.yaml`.
+- Screens built: chat, pending, activity, settings. The onboarding screen is deferred (owner's call); statement upload endpoints are dropped with it, statements stay in the folder. (Superseded below: onboarding shipped.)
+- Settings is read-only except the theme. Models and flags are edited in `config.yaml`. (Superseded below: Google actions.)
 - The design is a single column with a top bar and a chat-history drawer at every width, not a persistent sidebar. Theme default is dark, as in the design, with the stored choice winning.
 - No component library (shadcn dropped): the design is bespoke, styles are plain CSS variables plus Tailwind.
 - Markdown answers (tables included) are the only rich rendering; `show_view` stays v1.2.
@@ -327,7 +327,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 
 ## First-run onboarding addendum (2026-11-17)
 
-- The app opens on `/onboarding` when intake is on and the data repo holds no profile name, education, job or memory entry, and no card waits in Pending. Decided from the data, not a done flag (the flag stuck after a skip and hid setup from an owner Ka knew nothing about). Skip is always available; a failing check never redirects. Plans: `Docs/superpowers/plans/2026-11-17-ka-first-run-onboarding.md`, `Docs/superpowers/plans/2026-11-17-ka-empty-home.md`.
+- The app opens on `/onboarding` when intake is on and the data repo holds no profile name, education, job or memory entry, no setup card waits in Pending (statement, category and type cards do not count), and no intake job is running. Decided from the data, not a done flag (the flag stuck after a skip and hid setup from an owner Ka knew nothing about). Skip is always available; a failing check never redirects. Plans: `Docs/superpowers/plans/2026-11-17-ka-first-run-onboarding.md`, `Docs/superpowers/plans/2026-11-17-ka-empty-home.md`.
 
 ## Google via direct APIs addendum (2026-11-17)
 
@@ -335,7 +335,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 - Auth: installed-app OAuth flow, desktop client, stored refresh token. Ka requests `drive.readonly`, `spreadsheets`, `openid` and `userinfo.email`. The consent screen is in production and unverified (a one-time warning) and is shared with another app in the same Cloud project; Ka never changes project settings.
 - Secrets and IDs stay outside the code repo. The client file path, folder ID and sheet ID live in the local `config.yaml`; the token lives in `<data_repo>/local/google/token.json`.
 - Role: a Drive statements folder is an inbox that queues import cards in Pending; approved rows are copied to a Google Sheet. The local CSV stays the store of truth.
-- Settings gains a Google section with actions (Connect, Sync now, Copy to Sheet, Disconnect), so it is no longer read-only except the theme.
+- Settings gains a Google section with actions (Connect, Sync now, Copy now, Disconnect), so it is no longer read-only except the theme.
 - The MCP client is still built, for the GitHub, Notion and Gmail connectors. Plan: `Docs/superpowers/plans/2026-11-17-ka-v1-google.md`.
 - Voice (mic and realtime) moves to v1.1 (owner's call).
 

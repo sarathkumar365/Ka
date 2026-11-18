@@ -326,12 +326,17 @@ def _pending(args: argparse.Namespace) -> int:
                 for it in p["items"]:
                     print(f"       - {it['label']}  ({it['detail']})")
                 continue
+            if item.kind == "statement":  # Drive imports are decided in the web Pending screen
+                print(f"{item.id:>3}  [statement] {p['file']}, {p['account']}, {p['rows']} rows (approve in the app)")
+                continue
             print(f"{item.id:>3}  [{p['type']}] {p['text']}")
             if p.get("replaces"):
                 print(f"     replaces {p['replaces']}: {old.get(p['replaces'], '?')}")
         return 0
     try:
         item = db.get_pending(args.id)
+        if item is not None and item.kind == "statement":  # the app's reject also removes the downloaded PDF
+            raise PendingError("statement cards are approved or rejected in the app's Pending screen")
         bundle = item is not None and item.kind == "bundle"
         if args.action == "approve":
             if bundle:

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { api, keys, type MemoryRow, type PendingRow } from '../../lib/api'
 import { Icon } from '../../lib/icons'
@@ -83,12 +83,25 @@ export function PendingPage() {
   // the exit element itself only lives for its animation.
   const [gone, setGone] = useState<ReadonlySet<number>>(new Set())
   const queue = data.filter((r) => !gone.has(r.id))
+  const timers = useRef<number[]>([])
+  useEffect(() => () => timers.current.forEach(window.clearTimeout), [])
+  const stack = useRef<HTMLDivElement>(null)
+  const current = queue[0]?.id
+  useEffect(() => {
+    // after a decision, keyboard focus moves to the next card instead of falling to the page
+    if (decided) stack.current?.querySelector<HTMLElement>('.pcard[data-pos="current"] button, .cleared')?.focus()
+  }, [current, decided])
   const decide = (row: PendingRow) => (dir: 'yes' | 'no') => {
     setDecided((n) => n + 1)
     setGone((g) => new Set(g).add(row.id))
     setExits((x) => [...x, { row, dir }])
-    window.setTimeout(() => setExits((x) => x.filter((e) => e.row.id !== row.id)), EXIT_MS)
+    timers.current.push(window.setTimeout(() => setExits((x) => x.filter((e) => e.row.id !== row.id)), EXIT_MS))
   }
+  // One keyed list, so a decided card keeps its element (and its ticked lines) and slides out.
+  const cards = [
+    ...exits.map((e) => ({ row: e.row, pos: e.dir as string })),
+    ...queue.map((r, i) => ({ row: r, pos: i === 0 ? 'current' : 'next' })),
+  ]
   const sub = isLoading
     ? ''
     : queue.length
@@ -100,19 +113,14 @@ export function PendingPage() {
         <h1>Pending</h1>
         <div className="pagesub">{sub}</div>
       </div>
-      <div className="pstack">
-        {exits.map((e) => (
-          <div key={e.row.id} className="pcard" data-pos={e.dir} inert>
-            <Any row={e.row} onDone={() => {}} />
-          </div>
-        ))}
-        {queue.map((r, i) => (
-          <div key={r.id} className="pcard" data-pos={i === 0 ? 'current' : 'next'} inert={i > 0}>
-            <Any row={r} onDone={decide(r)} />
+      <div className="pstack" ref={stack}>
+        {cards.map(({ row, pos }) => (
+          <div key={row.id} className="pcard" data-pos={pos} inert={pos !== 'current'}>
+            <Any row={row} onDone={pos === 'current' ? decide(row) : () => {}} />
           </div>
         ))}
         {!isLoading && queue.length === 0 && (
-          <div className="cleared">
+          <div className="cleared" tabIndex={-1}>
             <Icon name="check" />
             <div>Nothing is waiting for you.</div>
             <div className="hint">Ka will ask here when it learns something new.</div>

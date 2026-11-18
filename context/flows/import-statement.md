@@ -24,7 +24,7 @@ A synthetic row `Mar 25  Point of sale purchase  4.50  495.50`, description `Apo
 3. `reconcile.reconcile` computes `delta = balance - previous balance` (-4.50), so the signed amount is -4.50. The year comes from the statement period, which handles December to January.
 4. `tagging.tag_rows`: type text `Point of sale purchase` gives `purchase`; merchant rule `Corner Cafe` gives category `dining`. Id is `scotiabank-chequing-2233-2031-04-001` (statement id plus row number), which is also the duplicate key.
 5. `importer.commit_import` refuses on failures or a known `statement_id`; otherwise `CsvFinanceStore.add_import` appends.
-6. With flag `category_suggestions` on, `cli._queue_suggestions` sends the uncategorised merchant texts (numbered lines) and unknown type texts to the default model in `server/finance/suggest.py`. Code guards drop a category not in `categories.yaml`, a `match` under 4 characters or not inside the merchant text, and a tag outside `Tag`. Survivors become one bundle card per section (`categories`, `types`); a merchant whose text or match is already in a pending card is skipped. `ka suggest` does the same for every stored uncategorised spending row (backfill). Merchants already waiting in a card are not sent to the model again.
+6. With flag `category_suggestions` on, `cli._queue_suggestions` sends the uncategorised merchant texts (numbered lines) and, from `ka import` only, the unknown type texts to one model call in `server/finance/suggest.py`: the private chain when `private_routing` is on, otherwise `models.default`. An import approved in Pending suggests categories only. Code guards drop a category not in `categories.yaml`, a `match` under 4 characters or not inside the merchant text, and a tag outside `Tag`. Survivors become one bundle card per section (`categories`, `types`); a merchant whose text or match is already in a pending card is skipped. `ka suggest` does the same for every stored uncategorised spending row (backfill). Merchants already waiting in a card are not sent to the model again.
 7. Approving the categories card commits the merchant rules (with today's `approved` date), then `tagging.reapply_rules` fills the category on stored rows that have none. A row with a category is never overwritten; own-account rows (`own_transfer`, `debt_payment`, `borrowing`) never get one.
 
 ## Why this way
@@ -32,7 +32,7 @@ A synthetic row `Mar 25  Point of sale purchase  4.50  495.50`, description `Apo
 - **Word positions over regex or `extract_table`.** The PDF has no ruling lines, and a description like `5.00 Railway` fools a text regex. Positions also give a fourth check for free: the printed column must agree with the direction the balance moved.
 - **Running balance decides direction.** Printed columns could be misread; the balance cannot lie without breaking check 1.
 - **Font-size filter.** Barcode digits sit inside the table area at other sizes (3.6, 6, 7, 10 pt). Table text is 8 and 9 pt.
-- **CSV before Google Sheets.** Same columns as the planned sheet tabs, behind `FinanceStore`, so the Sheets backend is a drop-in.
+- **CSV before Google Sheets.** Same columns as the planned sheet tabs, behind `FinanceStore`; the Google Sheet is a copy pushed by `sheet_copy.push_from_config`, never read back.
 - **Corrections link one way.** Only the correcting row carries `linked_id`, so the store stays append-only.
 - **Suggestions outside the import.** The parser and tagging path stays model-free and repeatable; the model only proposes rules, and the owner approves them once. Lines are numbered so a model that rewrites a merchant text still maps back to the right row.
 - **New type rules do not re-tag stored rows.** Tags change totals the owner already saw; they apply from the next import.
@@ -52,6 +52,6 @@ A synthetic row `Mar 25  Point of sale purchase  4.50  495.50`, description `Apo
 | Import and recategorise at the same time | `CsvFinanceStore` holds a file lock around each read-modify-write, so no rows are lost |
 | Model down or unusable reply during suggestions | `suggestions skipped: ...`; the import itself is already written |
 
-Not built yet: Drive inbox (plan `2026-11-17-ka-v1-google.md`).
+Drive inbox: see [google.md](google.md).
 
 Interview questions: [import-statement.interview.md](interview/import-statement.interview.md)

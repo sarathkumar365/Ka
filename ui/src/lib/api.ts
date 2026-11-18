@@ -92,7 +92,7 @@ export type IntakeJob = {
 export type ActivityRow = {
   id: number
   at: string
-  kind: 'read' | 'change' | 'pending' | 'error'
+  kind: 'read' | 'change' | 'pending' | 'error' | 'sheet' | 'extraction'
   text: string
   conversation_id: string | null
 }

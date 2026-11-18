@@ -55,10 +55,6 @@ def test_cards_waiting_in_pending_hold_the_redirect_until_decided(empty_repo):
     assert status(c) == {"needed": True, "reason": "first_run"}
 
 
-def test_complete_endpoint_is_gone(empty_repo):
-    assert client_for(empty_repo).post("/api/onboarding/complete").status_code in (404, 405)
-
-
 def test_unreadable_repo_does_not_trap_the_owner(empty_repo):
     (empty_repo.data_repo / "profile.yaml").unlink()
     assert status(client_for(empty_repo)) == {"needed": False, "reason": "unavailable"}

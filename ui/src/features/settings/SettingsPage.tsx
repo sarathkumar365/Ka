@@ -6,15 +6,13 @@ import { Icon } from '../../lib/icons'
 import { getTheme, setTheme } from '../../lib/theme'
 import { GoogleSection } from './GoogleSection'
 
-/** Feature flags in the design's words. `web_ui` is left out: you are using it. */
+/** Feature flags in the design's words. Only these are shown; `web_ui` is left out because you are using it. */
 const FLAGS: Record<string, [string, string]> = {
   intake: ['Setup and imports', 'Read a resume or what another assistant knows into Pending.'],
   google: ['Google Drive and Sheets', 'Pick up statements from Drive and keep a Sheet copy.'],
   private_routing: ['Private model for money', 'Questions about money go to a private model.'],
   nightly_extraction: ['Suggest facts and rules', 'Ka proposes what it notices. You still approve each one.'],
   category_suggestions: ['Category suggestions', 'Ka suggests a category for new transactions.'],
-  voice_mic: ['Voice input', 'Speak to Ka instead of typing.'],
-  notion_source: ['Notion', 'Read your Notion pages as a source.'],
 }
 const ROLES: Record<string, string> = { default: 'Answers' }
 
@@ -54,7 +52,7 @@ export function SettingsPage() {
     setTheme(light ? 'dark' : 'light')
     setLight(!light)
   }
-  const flags = Object.entries(data?.flags ?? {}).filter(([k]) => k !== 'web_ui')
+  const flags = Object.entries(data?.flags ?? {}).filter(([k]) => k in FLAGS) // known features only
   return (
     <div className="col page settings">
       <h1>Settings</h1>

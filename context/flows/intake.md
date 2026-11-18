@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    S[Basics, Documents, Memory steps<br/>held in page state] -->|Send to Ka| U[POST /api/intake/onboarding]
+    S[Basics, Documents, Sources stub, Memory steps<br/>held in page state] -->|Send to Ka| U[POST /api/intake/onboarding]
     U --> J[intake_jobs row + worker thread]
     J --> R[readers: file to text] --> E[extract_resume: one model call]
     E --> G[guards: numbers, dates, forbidden fields] --> Q[queue_draft: bundle cards]
@@ -27,7 +27,7 @@ Resume text (synthetic): "Northwind Test Co, Senior Backend Engineer, Mar 2023 t
 
 ## Send once
 
-`OnboardingPage` keeps one `Draft` (basics, files, memory boxes) in React state; Next and Back only change the step, and no request goes out. The Send step lists what will go and to which provider. `draft.toForm` builds one multipart body (files, `basics` JSON when filled, `memory` JSON when any box has text) for `POST /api/intake/onboarding`, which starts one `onboarding` job: `runner.run_onboarding_job` queues the basics, extracts every document (a bad file is a warning), drops the resume's Name line when the owner typed a name, then reads each memory export. It fails only when nothing at all was produced. The result carries `jobs`, `highlights` and `memories` for the summary line.
+`OnboardingPage` keeps one `Draft` (basics, files, memory boxes) in React state; Next and Back only change the step, and no request goes out. The Send step lists what will go and to which provider. `draft.toForm` builds one multipart body (files, `basics` JSON when filled, `memory` JSON when any box has text) for `POST /api/intake/onboarding`, which starts one `onboarding` job: `runner.run_onboarding_job` queues the basics, extracts every document (a bad file is a warning), drops the resume's Name line when the owner typed a name, then reads each memory export. It fails only when nothing could be read; reading everything and finding nothing new is a done job with 0 cards. The result carries `jobs`, `highlights` and `memories` for the summary line.
 
 The Send step is one continuous object (the `living-transitions` skill): the **Send to Ka** button becomes the Ka ring. `features/onboarding/KaRing.tsx` (mounted in the Shell) draws it on one canvas in the Shell with one render loop; `StepSend` only changes its target through a ref, and every value eases inside the loop (`ring.approach`), so nothing restarts or swaps. Phases: the ring takes the button's exact shape, rounds into the 112 px ring at the stage centre, and splits into one arc per part Ka reads (basics, each file, each assistant). Each arc is bound to that part's real state from the job (`result.parts`: waiting, reading, done, failed): the arc being read pulses, finished arcs stay lit, failed ones dim; the whole ring breathes on a 3.2 s cycle while Ka reads. When the job is done (at least 900 ms after Send, so it never flashes) the arcs join into one ring and the number of cards queued (`result.cards`) counts up inside it, with the summary below. **Review in Pending** shrinks the ring onto the Pending bell's badge (labelled with the count that badge shows), where the real badge takes over (with nothing waiting it simply fades), while Pending fades in behind with its first card current. A failure morphs the ring back into the button. Reduced motion snaps every change. Leaving with unsent input asks first (`beforeunload`, and a confirm on Skip); nothing is kept in the browser.
 
@@ -47,14 +47,13 @@ Opening the app on an empty setup starts on the Onboarding screen. `GET /api/onb
 | Model invents a number | dropped; the job result says how many |
 | Job approved before Domains is decided | 409 "approve or reject the Domains card first" |
 | Same card approved twice | second call refused, written once (a lock plus the status check) |
-| Unsupported, empty or oversize upload; more than 5 files | 400 with a reason; nothing saved |
+| Unsupported, empty or over-10 MB file; more than 5 files | 400 with a reason; request over the size cap 413; no content-length 411; nothing saved |
 | Bank statement PDF uploaded | skipped with a note to use the statement import |
 | Server restart during a job | job `failed: interrupted`; a new upload is allowed |
-| Another job already running | 409 |
 | One of several memory sources fails | warning in the job result; the other sources are still queued |
-| A document or a memory source fails in the onboarding send | warning on the summary; the rest is queued; the job fails only if nothing was produced |
+| A document or a memory source fails in the onboarding send | warning on the summary; the rest is queued; the job fails only if nothing could be read |
 | Send pressed twice, or another job running | 409; the button is disabled while sending |
 
-Source: `server/intake/*`, `server/api/intake.py`, `server/api/pending.py`, `server/integrations/data_repo/writer.py` (`plan_batch`), `ui/src/features/onboarding/*`, `ui/src/features/pending/BundleCard.tsx`
+Source: `server/intake/*`, `server/api/intake.py`, `server/api/pending.py`, `server/integrations/data_repo/writer.py` (`plan_batch`), `ui/src/features/onboarding/*`, `ui/src/features/pending/BundleCard.tsx`, `server/api/onboarding.py`, `ui/src/app/Shell.tsx`
 
 Interview questions: [intake.interview.md](interview/intake.interview.md)

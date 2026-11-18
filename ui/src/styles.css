@@ -132,6 +132,7 @@ button.secondary { height: 44px; min-width: 88px; padding: 0 20px; border: 1px s
 button:disabled { cursor: default; }
 .notice { margin-bottom: 20px; padding: 10px 14px; border-radius: 8px; background: var(--surf2); color: var(--t2); font-size: 14px; }
 .empty { position: absolute; left: 20px; right: 20px; top: calc(40% + 104px); display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+@media (max-height: 700px) { .empty .sub { display: none; } } /* short phones: keep the setup button clear of the composer */
 .composer { position: absolute; left: 20px; right: 20px; bottom: calc(24px + env(safe-area-inset-bottom)); height: 56px; }
 /* the box chrome is its own layer so it can dim on the empty home without dimming the text (design chromeO) */
 .composer::before { content: ""; position: absolute; inset: 0; z-index: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surf); transition: opacity 300ms ease; }
@@ -156,6 +157,7 @@ button:disabled { cursor: default; }
 [data-theme="light"] .tr-edge { stroke: hsl(226,82%,51.6%); }
 [data-theme="light"] .tr-arc { stroke: var(--lapis); }
 .entity-light > div { position: absolute; top: -5px; left: calc(50% - 3px); width: 6px; height: 6px; border-radius: 3px; background: #F1F5FF; box-shadow: 0 0 6px rgba(169,189,255,.9); }
+[data-theme="light"] .entity-light > div { background: var(--lapis); box-shadow: 0 0 6px rgba(47,79,196,.5); }
 
 /* pages */
 .page { padding-top: 32px; padding-bottom: 32px; }
@@ -183,7 +185,7 @@ button.slim { flex: none; min-width: 0; padding: 0 16px; }
 .pagehead { display: flex; flex-direction: column; gap: 4px; margin-bottom: 24px; }
 .pagehead h1 { margin: 0; }
 .pagesub { color: var(--t2); min-height: 1.6em; }
-.pstack { display: grid; }
+.pstack { display: grid; overflow-x: clip; }
 .pcard { grid-area: 1 / 1; align-self: start; transition: opacity 240ms ease, transform 420ms var(--S), visibility 0s linear 0s; }
 .pcard[data-pos="next"] { opacity: 0; transform: translateY(24px) scale(.96); visibility: hidden; transition-delay: 0s, 0s, 260ms; }
 .pcard[data-pos="yes"] { opacity: 0; transform: translateX(56px) scale(.96); pointer-events: none; }
@@ -217,7 +219,7 @@ button.slim { flex: none; min-width: 0; padding: 0 16px; }
 .onboarding .step { display: flex; flex-direction: column; gap: 20px; }
 .onboarding .step .sub { margin: 0; color: var(--t3); }
 .steplabel { font-size: 14px; color: var(--t2); }
-.obstack { display: grid; position: relative; }
+.obstack { display: grid; position: relative; overflow-x: clip; } /* hidden steps sit 40px to the side: no sideways scroll */
 .obstep { grid-area: 1 / 1; align-self: start; min-width: 0; transition: opacity 240ms ease, transform 420ms var(--S), visibility 0s linear 0s; }
 .obstep[data-pos="before"], .obstep[data-pos="after"] { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 260ms; position: absolute; inset: 0 0 auto; } /* only the current step sets the height */
 .obstep[data-pos="before"] { transform: translateX(-40px); }
@@ -259,7 +261,3 @@ button.next { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; bac
 .ka-ring-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
 .page.arrive { animation: ka-fade .25s ease both; }
 @keyframes ka-fade { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .page.arrive { animation: none; }
-  .step, .ringcount, .ringcaption, .summarygroup { transition: opacity .15s linear; transform: none; }
-}

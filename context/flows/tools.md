@@ -42,8 +42,8 @@ Request `propose_change {target: highlight, op: add, parent: "Acme Widgets|2022-
 | `import_statement` with `../x.pdf`, non-PDF, imported, or failing checks | `ToolError`, nothing written |
 | Summary asked for a month the data only partly covers | `finance_coverage` returns the overall range, rows per month and each statement period; the prompt tells the model to state which dates a figure covers |
 | `search_transactions` matches more than the limit | `truncated: true` plus `total_matches` |
+| `remember` when the owner's message lacks "remember" | refused: "use propose_memory instead"; nothing saved |
 
-Not yet: `search_conversations` (step 6), inferred memory and the pending queue (step 7), the approval prompt and loop (step 6), Drive as statement source.
 
 A `search` hit on a highlight carries `job` (`Company|start`), so the model can name the employer without a second call (eval q10 failed for lack of it).
 

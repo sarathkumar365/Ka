@@ -12,12 +12,13 @@ export function ApprovalCard({
   onDecide: (approve: boolean) => void
 }) {
   // Once decided, the question folds away and one line with an icon says what happened (design).
+  // It says Approved, not Saved: the write can still fail, and that failure arrives as a notice.
   return (
     <div className="card approval" data-decided={decision ?? undefined}>
       {decision ? (
         <div className={`decided ${decision}`}>
           <Icon name={decision === 'yes' ? 'check' : 'dash'} />
-          <span>{decision === 'yes' ? `Saved. ${summary}` : 'Left as it was.'}</span>
+          <span>{decision === 'yes' ? `Approved. ${summary}` : 'Left as it was.'}</span>
         </div>
       ) : (
         <>

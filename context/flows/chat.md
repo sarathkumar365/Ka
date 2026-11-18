@@ -22,7 +22,9 @@ Owner types "relabel account A-01". The model calls `propose_change`; the loop e
 
 ## The Ka entity and the composer
 
-`Entity.tsx` is the entity from the design prototype (`Design/extracted/app.html`), not a drawing: one element whose position, size and corners change per phase (`entityStyle.ts`, a port of the prototype's `entity()`), with a faint copy trailing it 700 ms behind. On the empty home it is a 152 px blob whose corners shift every 2.4 s beat (9% here, stronger than the design's 4%, by request); focusing the box turns it into the box's own border; while thinking it shrinks into place and hands over to `ThinkingRing.tsx`, the wobbly ring from the design's entity board (radius 9 ±1.5 px, three drifting sine lobes, a bright arc drifting round at 0.45 turns a second; the owner chose it over the prototype's spinning arc); while a tool runs it is a 44 px bar sliding end to end every 900 ms; answering and idle it sits in the box as a 24 px ring, and waiting for a yes it is a brighter 26 px ring with a halo. Up to six lights on it count cards waiting in Pending. The composer's placeholder carries the status ("Thinking", "Searching transactions", "Reply or ask something else"); its chrome dims on the empty home and disappears while typing, and new messages open from 0 to full height (loaded history does not).
+`Entity.tsx` is the entity from the design prototype (`Design/extracted/app.html`), not a drawing: one element whose position, size and corners change per phase (`entityStyle.ts`, a port of the prototype's `entity()`), with a faint copy trailing it 700 ms behind. On the empty home it is a 152 px blob whose corners shift every 2.4 s beat (9% here, stronger than the design's 4%, by request); focusing the box turns it into the box's own border; while thinking it shrinks into place and hands over to `ThinkingRing.tsx`, the wobbly ring from the design's entity board (radius 9 ±1.5 px, three drifting sine lobes, a bright arc drifting round at 0.45 turns a second; the owner chose it over the prototype's spinning arc); while a tool runs it is a 44 px bar sliding end to end every 900 ms; answering and idle it sits in the box as a 24 px ring, and waiting for a yes it is a brighter 26 px ring with a halo. Up to six lights count cards waiting in Pending (hidden while typing, thinking or searching). The composer's placeholder carries the status ("Thinking", what the running tool does such as "Searching transactions", "Answer yes or no above" while an approval waits, "Reply or ask something else"), and a hidden status line reads it to screen readers; its chrome dims on the empty home and disappears while typing, and new messages open from 0 to full height (loaded history does not).
+
+A decided approval folds to one line: "Approved." with the summary, or "Left as it was." It does not say Saved, because the write can still fail; that failure arrives as a notice.
 
 ## Why this way
 
@@ -47,6 +49,6 @@ With flag `private_routing` on, every tool registered with `private=True` (finan
 | Private chain down | `error` frame `private model unavailable: ...`; default model not called |
 | Unexpected exception | `error` frame "Something went wrong."; details stay in the server log |
 
-Source: `server/api/{chat,approvals,describe}.py`, `ui/src/features/chat/*`, `ui/src/lib/stream.ts`
+Source: `server/api/{chat,approvals,describe,conversations}.py`, `ui/src/features/chat/*`, `ui/src/app/Sidebar.tsx`, `ui/src/lib/stream.ts`
 
 Interview questions: [chat.interview.md](interview/chat.interview.md)

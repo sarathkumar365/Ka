@@ -22,11 +22,17 @@ const RUNNING: Record<string, string> = {
   search_conversations: 'Searching past chats',
   get_jobs: 'Reading your jobs',
   get_profile: 'Reading your profile',
+  finance_coverage: 'Checking which dates the data covers',
+  propose_change: 'Preparing a change',
+  propose_memory: 'Preparing a memory',
+  remember: 'Preparing a memory',
+  import_statement: 'Preparing a statement import',
 }
 
 function placeholderFor(phase: Phase, hasItems: boolean, tool?: string): string {
   if (phase === 'thinking') return 'Thinking'
-  if (phase === 'searching') return (tool && RUNNING[tool]) || 'Searching'
+  if (phase === 'searching') return (tool && RUNNING[tool]) || 'Working'
+  if (phase === 'waiting') return 'Answer yes or no above' // the box cannot send until then
   return hasItems ? 'Reply or ask something else' : 'Ask Ka anything'
 }
 
@@ -56,6 +62,7 @@ export function ChatPage() {
     live.current = false
     loaded.current = id ?? null
     if (!id) {
+      setLoading(false) // a chat that was still loading must not leave the new one busy
       setBase(0)
       return dispatch({ type: 'load', conversationId: null, items: [] })
     }
@@ -185,6 +192,10 @@ export function ChatPage() {
           )}
         </div>
       )}
+      {/* the placeholder is the visible status; this line reads it out to screen readers */}
+      <div className="vh" role="status">
+        {busy ? placeholderFor(state.phase, !empty, lastTool) : ''}
+      </div>
       <Composer
         disabled={busy}
         onSend={send}

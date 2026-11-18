@@ -45,8 +45,9 @@ export function OnboardingPage() {
               <div key={l} className="dot" data-on={i <= step} data-current={i === step} />
             ))}
           </div>
-          <div className="steplabel">
+          <div className="steplabel" aria-live="polite">
             Step {step + 1} of {LABELS.length}
+            <span className="vh">: {LABELS[step]}</span>
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ The service worker could not register in the desktop app's embedded browser, and
 |---|---|
 | Host not in `ui_hosts` | 400 |
 | Service worker unsupported or blocked | app works without offline shell |
+| POST from another site's page (Origin not allowed) | 403 "cross-site request refused" |
 
 Source: `ui/vite.config.ts`, `ui/index.html`, `ui/scripts/make-icons.mjs`, `server/api/app.py`
 

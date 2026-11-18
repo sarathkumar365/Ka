@@ -8,7 +8,7 @@ export function entityMode(phase: Phase, hasItems: boolean, typing: boolean): En
   return phase
 }
 
-export type EntityStyle = {
+type EntityStyle = {
   l: string
   t: string
   w: string
