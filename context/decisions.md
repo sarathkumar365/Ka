@@ -327,7 +327,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 
 ## First-run onboarding addendum (2026-11-17)
 
-- The app opens on `/onboarding` when intake is on, onboarding was never finished or skipped, and no jobs are stored. State is one key in `ka.db` (`app_state.onboarding_done`), not in the data repo. Skip is always available; a failing check never redirects. Plan: `Docs/superpowers/plans/2026-11-17-ka-first-run-onboarding.md`.
+- The app opens on `/onboarding` when intake is on and the data repo holds no profile name, education, job or memory entry, and no card waits in Pending. Decided from the data, not a done flag (the flag stuck after a skip and hid setup from an owner Ka knew nothing about). Skip is always available; a failing check never redirects. Plans: `Docs/superpowers/plans/2026-11-17-ka-first-run-onboarding.md`, `Docs/superpowers/plans/2026-11-17-ka-empty-home.md`.
 
 ## Google via direct APIs addendum (2026-11-17)
 

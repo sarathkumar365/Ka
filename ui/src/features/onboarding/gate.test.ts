@@ -7,7 +7,7 @@ const needed: OnboardingStatus = { needed: true, reason: 'first_run' }
 
 test('redirects only when needed and not already on onboarding', () => {
   expect(shouldRedirect(undefined, '/chat')).toBe(false) // loading or request failed
-  expect(shouldRedirect({ needed: false, reason: 'done' }, '/chat')).toBe(false)
+  expect(shouldRedirect({ needed: false, reason: 'has_data' }, '/chat')).toBe(false)
   expect(shouldRedirect(needed, '/onboarding')).toBe(false)
   expect(shouldRedirect(needed, '/onboarding/x')).toBe(false)
   for (const p of ['/chat', '/chat/C-1', '/pending', '/settings']) expect(shouldRedirect(needed, p)).toBe(true)

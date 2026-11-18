@@ -135,7 +135,6 @@ export const api = {
   googlePush: () => post('/google/push'),
   googleDisconnect: () => post('/google/disconnect'),
   onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
-  completeOnboarding: () => post('/onboarding/complete') as Promise<{ ok: boolean }>,
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
   async sendOnboarding(form: FormData): Promise<{ job_id: string }> {
     const res = await fetch('/api/intake/onboarding', { method: 'POST', body: form })

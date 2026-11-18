@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, keys } from '../../lib/api'
+import { keys } from '../../lib/api'
 import { type Draft, emptyDraft, hasInput } from './draft'
 import { StepBasics } from './StepBasics'
 import { StepDocuments } from './StepDocuments'
@@ -17,11 +17,6 @@ export function OnboardingPage() {
   const [phase, setPhase] = useState<SendPhase>('idle')
   const nav = useNavigate()
   const qc = useQueryClient()
-  const finish = useMutation({
-    mutationFn: api.completeOnboarding,
-    // Settled, not success: a failed save must not leave the owner stuck; the skip holds for this page load.
-    onSettled: () => qc.setQueryData(keys.onboarding, { needed: false, reason: 'done' }),
-  })
   const unsent = hasInput(draft) && (phase === 'idle' || phase === 'failed')
   useEffect(() => {
     if (!unsent) return
@@ -29,7 +24,11 @@ export function OnboardingPage() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [unsent])
-  const leave = (to: string, state?: object) => finish.mutate(undefined, { onSettled: () => nav(to, { state }) })
+  const leave = (to: string, state?: object) => {
+    // the status is read from the data, so ask again: after a send it says "pending"
+    qc.invalidateQueries({ queryKey: keys.onboarding })
+    nav(to, { state })
+  }
   const skip = () => {
     if (unsent && !window.confirm('Leave setup? What you entered is not saved.')) return
     leave('/chat')

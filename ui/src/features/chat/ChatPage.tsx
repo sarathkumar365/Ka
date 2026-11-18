@@ -1,17 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api, keys } from '../../lib/api'
 import { streamChat } from '../../lib/stream'
 import { ApprovalCard } from './ApprovalCard'
 import { Composer } from './Composer'
+import { emptyState } from './emptyState'
 import { Entity, entityMode } from './Entity'
 import { Markdown } from './Markdown'
 import { initialState, reduce, type ChatItem } from './state'
 import { ToolLine } from './ToolLine'
 import { useTypewriter } from './useTypewriter'
-
-const PROMPTS = ['What is my current job?', 'How much did I spend last month?']
 
 function Answer({ text, animate }: { text: string; animate: boolean }) {
   return <Markdown text={useTypewriter(text, animate)} />
@@ -21,7 +20,7 @@ export function ChatPage() {
   const { id } = useParams()
   const nav = useNavigate()
   const qc = useQueryClient()
-  const { data: settings } = useQuery({ queryKey: keys.settings, queryFn: api.settings })
+  const { data: onboarding } = useQuery({ queryKey: keys.onboarding, queryFn: api.onboardingStatus, retry: false })
   const [state, dispatch] = useReducer(reduce, initialState)
   const [loading, setLoading] = useState(false) // history of the opened chat is on its way
   const abort = useRef<AbortController | null>(null)
@@ -130,19 +129,22 @@ export function ChatPage() {
       </div>
       {empty && !busy && (
         <div className="empty">
-          <div style={{ color: 'var(--t2)' }}>Ask about your profile, your career or your money.</div>
-          {settings?.flags.intake && (
-            <Link to="/onboarding" className="sub" style={{ color: 'var(--lapis-hi)' }}>
-              Set up Ka with your resume
-            </Link>
-          )}
-          <div className="row" style={{ flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-            {PROMPTS.map((p) => (
-              <button key={p} className="chip" onClick={() => send(p)}>
-                {p}
+          {emptyState(onboarding) === 'setup' ? (
+            <>
+              <div className="lead" style={{ color: 'var(--t1)' }}>
+                Ka doesn't know you yet.
+              </div>
+              <div className="sub" style={{ maxWidth: 420 }}>
+                Add your basics, a resume and what other assistants know about you. Ka reads it once and you
+                approve what it keeps.
+              </div>
+              <button className="primary" onClick={() => nav('/onboarding')}>
+                Set up Ka
               </button>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div style={{ color: 'var(--t2)' }}>Ask about your profile, your career or your money.</div>
+          )}
         </div>
       )}
       <Composer disabled={busy} onSend={send} docked={!empty || busy} />
