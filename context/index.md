@@ -21,7 +21,7 @@
 | google | `flows/google.md` | `server/integrations/google/*`, `server/finance/{drive_inbox,sheet_copy}.py`, `server/api/google.py`, `ui/src/features/settings/GoogleSection.tsx`, `ui/src/features/pending/StatementCard.tsx` |
 | activity | `flows/activity.md` | `server/api/{activity,describe}.py`, `ui/src/features/activity/*` |
 | settings | `flows/settings.md` | `server/api/settings.py`, `ui/src/features/settings/*`, `ui/src/lib/theme.ts` |
-| pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py`, `ui/src/main.tsx`, `ui/scripts/make-icons.mjs` |
+| pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py`, `ui/src/main.tsx`, `ui/scripts/make-icons.mjs`, `scripts/setup.sh` |
 | intake | `flows/intake.md` | `server/intake/*`, `server/api/{intake,onboarding}.py`, `ui/src/features/onboarding/*`, `ui/src/app/Shell.tsx` |
 | data repo | `flows/data-repo.md` | `server/integrations/data_repo/{loader,writer}.py`, `server/integrations/data_repo/schemas/*` |
 | config | `flows/config.md` | `server/config.py`, `server/env.py`, `config.example.yaml` |
