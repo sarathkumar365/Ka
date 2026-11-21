@@ -21,16 +21,20 @@ from server.store.db import Db
 CHECKS_RUN = 4
 
 
-_USER: str | None = None  # --user; default: the only account
+_USER: str | None = None  # --user USERNAME; default: the only account
 
 
 def _cfg():
     """The config as seen by the account the command runs for."""
     from server.store.db import Db
-    from server.users import only_user, user_config
+    from server.users import resolve_user, user_config
 
     base = load_config()
-    return user_config(base, _USER or base.user_id or only_user(Db.system(base.db_path)))
+    db = Db.system(base.db_path)
+    try:
+        return user_config(base, resolve_user(db, _USER))
+    finally:
+        db.conn.close()
 
 
 def _check(_args: argparse.Namespace) -> int:
@@ -38,8 +42,10 @@ def _check(_args: argparse.Namespace) -> int:
 
     try:
         cfg = _cfg()
-    except UserError as e:  # a fresh install: config is valid, the data comes with the account
-        print(f"ok: config valid; {e}")
+    except UserError as e:
+        if _USER:  # a named account that does not exist is an error, not a fresh install
+            raise
+        print(f"ok: config valid; {e}")  # no accounts yet, or several: the data is per account
         return 0
     load_data(cfg.data_repo)
     print("ok: 11 files")
@@ -144,16 +150,17 @@ def _sheet(_args: argparse.Namespace) -> int:
 
 def _google_probe(cfg, auth) -> int:
     from server.integrations.google.drive import ApiDrive
+    from server.integrations.google.oauth import require_drive, require_sheet
 
     creds = auth.credentials()
-    files = ApiDrive(creds).list_pdfs(cfg.google.drive_folder_id)
+    files = ApiDrive(creds).list_pdfs(require_drive(cfg))
     print(f"statements folder: {len(files)} PDF(s)")
     for f in files:
         print(f"  {f.name}")
     from googleapiclient.discovery import build
 
     sheet = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
-    title = sheet.get(spreadsheetId=cfg.google.sheet_id, fields="properties.title").execute()
+    title = sheet.get(spreadsheetId=require_sheet(cfg), fields="properties.title").execute()
     print(f"sheet: {title['properties']['title']}")
     return 0
 
@@ -434,9 +441,42 @@ def _loops(args: argparse.Namespace) -> int:
     return 0
 
 
+def _users(args: argparse.Namespace) -> int:
+    from getpass import getpass
+
+    from server.auth.passwords import hash_password
+    from server.auth.users import MIN_PASSWORD
+    from server.store.db import Db
+    from server.users import UserError, resolve_user
+
+    db = Db.system(load_config().db_path)
+    try:
+        if args.action == "list":
+            for name, created in db.conn.execute(
+                "select username, created_at from users order by created_at"
+            ):
+                print(f"{name}  (since {created[:10]})")
+            return 0
+        user_id = resolve_user(db, args.username)
+        password = getpass("new password: ")
+        if len(password) < MIN_PASSWORD:
+            raise UserError(f"password: at least {MIN_PASSWORD} characters")
+        if getpass("again: ") != password:
+            raise UserError("the passwords differ")
+        with db.conn:
+            db.conn.execute(
+                "update users set password_hash=? where id=?", (hash_password(password), user_id)
+            )
+            db.conn.execute("delete from sessions where user_id=?", (user_id,))
+        print(f"password set for {args.username}; their sessions are signed out")
+        return 0
+    finally:
+        db.conn.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ka")
-    parser.add_argument("--user", help="account to act as (default: the only one)")
+    parser.add_argument("--user", metavar="USERNAME", help="account to act as (default: the only one)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check", help="validate the data repo").set_defaults(func=_check)
     imp = sub.add_parser("import", help="import a statement PDF")
@@ -483,7 +523,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     loops.add_argument("id", nargs="?")
     loops.set_defaults(func=_loops)
+    users = sub.add_parser("users", help="list accounts or set a new password")
+    users.add_argument("action", nargs="?", choices=["list", "reset-password"], default="list")
+    users.add_argument("username", nargs="?")
+    users.set_defaults(func=_users)
     args = parser.parse_args(argv)
+    if args.command == "users" and args.action == "reset-password" and not args.username:
+        parser.error("users reset-password needs a username")
     if args.command == "pending" and args.action and args.id is None:
         parser.error("pending approve|reject needs an id")
     global _USER

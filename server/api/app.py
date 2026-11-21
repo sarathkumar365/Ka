@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse
 from server.agent.adapters import Adapter
 from server.config import Config
 from server.flags import is_on
+from server.jobs import account_ids, for_each_account
 from server.store.db import Db
 
 
@@ -62,7 +63,7 @@ def create_app(
         from server.scheduler import ScheduledJob
 
         jobs.append(ScheduledJob("loop_watchdog", {"trigger": "interval", "minutes": 15},
-                                 lambda: _for_each_user(cfg, _watch)))  # fmt: skip
+                                 for_each_account(cfg, _watch, "loop_watchdog")))  # fmt: skip
     lifespan = _lifespan(cfg, jobs, (adapter_factory, private_factory) if run_loops else None)
     app = FastAPI(title="Ka", docs_url=None, redoc_url=None, lifespan=lifespan)
     allowed = {"127.0.0.1", "localhost", *cfg.ui_hosts}
@@ -100,8 +101,9 @@ def create_app(
     app.state.broker = ApprovalBroker()
     app.state.approval_timeout = approval_timeout
     app.state.running = set()
-    app.state.lock = threading.Lock()
-    app.state.pending_lock = threading.Lock()
+    app.state.lock = threading.Lock()  # guards the running-turns set only
+    app.state.google_auths = {}  # user_id -> GoogleAuth, see api/google.py
+    app.state.limits = {}  # sign-up and login limiters, see api/auth.py
     app.state.on_user_created = lambda user_id: None  # loops add their built-in tasks here
     for module in (
         auth,
@@ -127,63 +129,33 @@ def _jobs(cfg: Config, adapter_factory, private_factory) -> list:
 
     jobs = []
     if is_on(cfg, "nightly_extraction"):
-        nightly = _as_owner(
-            cfg, lambda u: nightly_job(u, adapter_factory, private_factory=private_factory)
+        # Hourly for every account: each one catches up to its own local yesterday, so the day
+        # ends in the person's time zone, not the server's. The first run is the start-up catch-up.
+        nightly = for_each_account(
+            cfg,
+            lambda u: nightly_job(u, adapter_factory, private_factory=private_factory).run(),
+            "nightly_extraction",
         )
-        # The catch-up runs in the scheduler thread right after start, so boot never waits on it.
         jobs += [
-            ScheduledJob(
-                "nightly_extraction", {"trigger": "cron", "hour": 3, "minute": 0}, nightly
-            ),
+            ScheduledJob("nightly_extraction", {"trigger": "interval", "hours": 1}, nightly),
             ScheduledJob("catch_up", {"trigger": "date"}, nightly),
         ]
     # With loops on, the statement import loop owns the Drive folder; the old job stays for "off".
     if is_on(cfg, "google") and cfg.google is not None and not is_on(cfg, "loops"):
         jobs.append(
             ScheduledJob(
-                "drive_sync", {"trigger": "interval", "minutes": 30}, _as_owner(cfg, drive_job)
+                "drive_sync",
+                {"trigger": "interval", "minutes": 30},
+                for_each_account(cfg, lambda u: drive_job(u).run(), "drive_sync_job"),
             )
         )
     return jobs
 
 
-def _as_owner(cfg: Config, make):
-    """Run a job as the account (resolved at run time: there may be none at boot)."""
-    from server.users import UserError, only_user, user_config
-
-    made: dict[
-        str, object
-    ] = {}  # one job per user, so its own lock spans the catch-up and cron run
-
-    def run() -> None:
-        try:
-            user = only_user(Db.system(cfg.db_path))
-        except UserError:
-            return
-        if user not in made:
-            made[user] = make(user_config(cfg, user))
-        made[user].run()
-
-    return run
-
-
-def _users(cfg: Config) -> list[str]:
-    db = Db.system(cfg.db_path)
-    try:
-        return [r[0] for r in db.conn.execute("select id from users order by created_at")]
-    finally:
-        db.conn.close()
-
-
-def _for_each_user(cfg: Config, fn) -> None:
-    for user in _users(cfg):
-        fn(cfg, user)
-
-
-def _watch(cfg: Config, user: str) -> None:
+def _watch(ucfg: Config) -> None:
     from server.loops.service import watchdog
 
-    watchdog(cfg, user)
+    watchdog(ucfg, ucfg.user_id)
 
 
 def _start_loops(app, scheduler, cfg: Config, factories) -> None:
@@ -209,7 +181,7 @@ def _start_loops(app, scheduler, cfg: Config, factories) -> None:
             db.conn.close()
         loops.sync(user)
 
-    for user in _users(cfg):
+    for user in account_ids(cfg):
         added(user)
     app.state.on_user_created = added
     app.state.loops = loops

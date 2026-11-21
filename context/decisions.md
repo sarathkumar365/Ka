@@ -367,8 +367,8 @@ The coding agent builds against mocks and synthetic data until each item is read
 
 Plan: `Docs/next-phase-plan.md`; tasks: `Docs/superpowers/plans/2026-11-20-ka-next-phase.md`. Owner's calls:
 
-- Login is always on (no flag): one account, created as the first step of onboarding; server-side sessions in an HttpOnly cookie, 14-day sliding expiry, 30-day maximum; lockout after 5 wrong passwords. Every SQLite row carries `user_id`.
-- Everything personal lives under `users/<user_id>/` in the data repo (YAML, memory files, `settings.yaml` with the Drive folder and Sheet ids, `local/`). Generic configuration (models, flags, the OAuth client file) stays in `config.yaml`. The first account claims an existing root-layout repo in one commit.
+- Login is always on (no flag): accounts are created as the first step of onboarding (one account at first, withdrawn on 2026-11-20, see below); server-side sessions in an HttpOnly cookie, 14-day sliding expiry, 30-day maximum; lockout after 5 wrong passwords. Every SQLite row carries `user_id`.
+- Everything personal lives under `users/<user_id>/` in the data repo (YAML, memory files, `settings.yaml` with the Drive folder and Sheet ids, `local/`). Generic configuration (models, flags, the OAuth client file) stays in `config.yaml`. (The legacy-repo claim was removed with the multi-account change.)
 - Toolkits are part of the system (no flag): core always loaded, finance and movies loaded on demand with `load_toolkit`; one memory file per toolkit next to `memory/core.yaml`.
 - Flags for new features: `tracing`, `web_search`, `movies`, `loops`, all checked through `server/flags.py`; unknown flag names stop startup.
 - Risky tools: a yes/no card in a live chat; in a loop, a `tool_write` card in Pending. Untrusted content blocks risky tools for the rest of the turn.
@@ -376,3 +376,17 @@ Plan: `Docs/next-phase-plan.md`; tasks: `Docs/superpowers/plans/2026-11-20-ka-ne
 - Model tiers by task (`chat`, `small`, `grader`), OpenRouter fallbacks and prompt caching through config; tracing with plain OpenTelemetry to self-hosted Langfuse.
 - Loops: one runner with limits (300 s, 20 model calls, 30 tool calls, $0.50), shadow mode by default, write keys, watchdog alerts, one stop switch. Statement import is the first loop.
 - No commits during the build; the owner reviews and commits. Live evals, Langfuse and the TMDB terms check happen after the build (`Docs/post-build-setup.md`).
+
+## Multi-account platform (2026-11-20)
+
+Spec: `Docs/superpowers/specs/2026-11-20-multi-account-design.md`; plan: `Docs/superpowers/plans/2026-11-20-ka-multi-account.md`. Owner's calls:
+
+- Ka is a platform: open sign-up, many accounts, full isolation. The one-account rule above is withdrawn (the owner never asked for it).
+- Home screen with Create account (then onboarding) and Sign in; sign-up and sign-in link to each other.
+- No data migration: there is no real data yet, so every account starts empty; `claim_legacy_data` and `backfill_user` are deleted.
+- No fallback to `config.yaml` for the Drive folder or Sheet: each account sets its own; when missing, Ka says it is not set up yet.
+- Both background jobs (nightly extraction, Drive sync) run once per account, and one failure never stops the others.
+- No per-account spending cap.
+
+Calls made in the build (see the plan's ledger rulings): opaque account ids `u_` + 12 hex; sign-up limited to 5 per hour per address; wrong passwords limited per address and username (no account-wide lockout); nightly extraction hourly per account up to its local yesterday; one git commit lock for the whole data repo.
+

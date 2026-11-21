@@ -3,7 +3,9 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 
+from server.auth.clientip import trusted_proxy
 from server.config import Config
 from server.flags import is_on
 from server.integrations.google.oauth import GoogleAuth, GoogleAuthError, auth_for
@@ -18,15 +20,36 @@ def _auth(request: Request) -> GoogleAuth:
     cfg: Config = request.state.cfg
     if not is_on(cfg, "google") or cfg.google is None:
         raise HTTPException(404, "google is off")
-    # one GoogleAuth per app, so the web flow's state survives between login and callback
-    if getattr(request.app.state, "google_auth", None) is None:
-        request.app.state.google_auth = auth_for(cfg)
-    return request.app.state.google_auth
+    # One GoogleAuth per account, kept so the web flow's state survives login to callback; each
+    # holds that account's own token file.
+    auths = request.app.state.google_auths
+    if cfg.user_id not in auths:
+        auths[cfg.user_id] = auth_for(cfg)
+    return auths[cfg.user_id]
 
 
 def _redirect(request: Request) -> str:
-    port = request.url.port or 80
-    return f"http://127.0.0.1:{port}/api/google/callback"
+    """Back to the address the browser used, also through the tailnet HTTPS proxy."""
+    proto, host = request.url.scheme, request.url.netloc
+    if trusted_proxy(request):
+        proto = request.headers.get("x-forwarded-proto", proto)
+        host = request.headers.get("x-forwarded-host", host)
+    return f"{proto}://{host}/api/google/callback"
+
+
+class GoogleIds(BaseModel):
+    drive_folder_id: str | None = Field(default=None, max_length=200)
+    sheet_id: str | None = Field(default=None, max_length=200)
+
+
+@router.put("/google/settings")
+def save_settings(body: GoogleIds, request: Request):
+    from server.google_settings import save_google_settings
+
+    _auth(request)
+    clean = [(v or "").strip() or None for v in (body.drive_folder_id, body.sheet_id)]
+    save_google_settings(request.state.cfg, *clean)
+    return {"ok": True}
 
 
 @router.get("/google/status")

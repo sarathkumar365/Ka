@@ -13,8 +13,6 @@ from typing import Any, Literal
 
 from .migrations import migrate
 
-LOCAL_USER = "local"  # tests and pre-account code paths; server code passes the real user
-
 
 @dataclass
 class SearchHit:
@@ -67,10 +65,13 @@ class Db:
     def __init__(
         self,
         path: Path | str,
-        user_id: str = LOCAL_USER,
+        user_id: str,
         shared_threads: bool = False,
         init_schema: bool = True,
+        _system: bool = False,
     ) -> None:
+        if not user_id and not _system:
+            raise ValueError("Db needs a user; use Db.system for auth")
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         # one request = one connection used by one thread at a time, but FastAPI may hop threads
@@ -82,10 +83,10 @@ class Db:
     @classmethod
     def system(cls, path: Path | str, shared_threads: bool = False) -> "Db":
         """No user: for auth and migrations only; user rows are not visible through it."""
-        return cls(path, user_id="", shared_threads=shared_threads)
+        return cls(path, user_id="", shared_threads=shared_threads, _system=True)
 
     def new_conversation(self, now: datetime) -> str:
-        cid = f"C-{now:%Y%m%d}-{secrets.token_hex(2)}"
+        cid = f"C-{now:%Y%m%d}-{secrets.token_hex(8)}"
         with self.conn:
             self.conn.execute(
                 "insert into conversations (id, started_at, user_id) values (?, ?, ?)",
@@ -129,6 +130,8 @@ class Db:
         return row is not None
 
     def add_message(self, conv_id: str, message: dict, now: datetime) -> int:
+        if not self.conversation_exists(conv_id):
+            raise KeyError("no such conversation")
         with self.conn:
             cur = self.conn.execute(
                 "insert into messages (conversation_id, role, body, at, user_id) values (?,?,?,?,?)",
@@ -137,8 +140,8 @@ class Db:
             text = message.get("content")
             if message["role"] in ("user", "assistant") and isinstance(text, str) and text:
                 self.conn.execute(
-                    "insert into message_fts values (?,?,?,?,?)",
-                    (text, conv_id, cur.lastrowid, message["role"], now.isoformat()),
+                    "insert into message_fts values (?,?,?,?,?,?)",
+                    (text, conv_id, cur.lastrowid, message["role"], now.isoformat(), self.user_id),
                 )
         return cur.lastrowid
 
@@ -158,8 +161,8 @@ class Db:
             "select f.conversation_id, f.message_id, f.role,"
             " snippet(message_fts, 0, '[', ']', '…', 12), f.at"
             " from message_fts f join conversations c on c.id = f.conversation_id"
-            " where message_fts match ? and c.user_id=? order by rank limit ?",
-            (match, self.user_id, limit),
+            " where message_fts match ? and f.user_id=? and c.user_id=? order by rank limit ?",
+            (match, self.user_id, self.user_id, limit),
         ).fetchall()
         return [SearchHit(*r) for r in rows]
 
@@ -208,9 +211,11 @@ class Db:
     def list_conversations(self, limit: int = 100) -> list[ConversationRow]:
         rows = self.conn.execute(
             "select c.id, c.started_at,"
-            " coalesce((select max(at) from messages m where m.conversation_id=c.id), c.started_at),"
+            " coalesce((select max(at) from messages m"
+            "  where m.conversation_id=c.id and m.user_id=c.user_id), c.started_at),"
             " (select json_extract(body, '$.content') from messages m"
-            "  where m.conversation_id=c.id and m.role='user' order by m.id limit 1)"
+            "  where m.conversation_id=c.id and m.user_id=c.user_id and m.role='user'"
+            "  order by m.id limit 1)"
             " from conversations c where c.user_id=? order by 3 desc, c.id desc limit ?",
             (self.user_id, limit),
         ).fetchall()
@@ -254,7 +259,7 @@ class Db:
     def new_intake_job(
         self, kind: Literal["documents", "memory", "onboarding"], now: datetime
     ) -> str:
-        job_id = f"I-{now:%Y%m%d}-{secrets.token_hex(2)}"
+        job_id = f"I-{now:%Y%m%d}-{secrets.token_hex(8)}"
         with self.conn:
             self.conn.execute(
                 "insert into intake_jobs (id, kind, status, created_at, user_id) values (?,?,?,?,?)",

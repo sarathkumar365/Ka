@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { type MouseEvent, useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { SetupStep } from '../features/auth/SetupStep'
 import { api, keys } from '../lib/api'
 import { useFirstRunRedirect } from '../features/onboarding/gate'
 import { Icon } from '../lib/icons'
@@ -18,7 +17,7 @@ export function Shell() {
     refetchOnWindowFocus: false,
   })
   if (isLoading || !auth) return null
-  if (!auth.user) return auth.setup_needed ? <SetupStep rules={auth} /> : <Navigate to="/login" replace />
+  if (!auth.user) return <Navigate to="/welcome" replace />
   return <SignedIn />
 }
 

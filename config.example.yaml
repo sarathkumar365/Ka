@@ -20,7 +20,5 @@ models:
   grader: {provider: openrouter, model: "set-me"}  # eval judge (Opus)
 private_models:  # finance conversations, tried in order; an Ollama entry can go first later
   - {provider: openrouter, model: "set-me", zdr: true, only: [amazon-bedrock]}  # key from OPENROUTER_API_KEY
-google:  # Drive statement inbox and Sheet copy; IDs come from the folder and sheet URLs
+google:  # Drive statement inbox and Sheet copy; each account sets its folder and Sheet in Settings
   client_file: set-me  # path to the OAuth desktop client JSON, kept outside the repo
-  drive_folder_id: set-me
-  sheet_id: set-me

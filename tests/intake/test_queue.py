@@ -47,7 +47,7 @@ def cards(db):
 
 
 def test_queue_builds_cards_by_job(data):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     result = queue_draft(db, data, draft(), "resume.pdf", NOW)
     rows = cards(db)
     assert [c.payload["section"] for c in rows] == ["basics", "education", "domains", "job", "job"]
@@ -75,7 +75,7 @@ def test_stored_job_is_skipped_and_new_highlights_become_a_card(data):
         education=[],
         domains=[],
     )
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, data, d, "r", NOW)
     [card] = cards(db)
     assert card.payload["section"] == "highlights"
@@ -92,7 +92,7 @@ def test_job_without_start_is_blocked_and_missing_type_is_assumed(data):
             {"company": "Typeless", "position": "Dev", "start": "2021-05"},
         ],
     )
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, data, d, "r", NOW)
     blocked, typeless = cards(db)
     assert blocked.payload["blocked"] == "no start date found"
@@ -103,7 +103,7 @@ def test_job_without_start_is_blocked_and_missing_type_is_assumed(data):
 
 
 def test_rerun_does_not_duplicate_cards(data):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, data, draft(), "r", NOW)
     again = queue_draft(db, data, draft(), "r", NOW)
     assert again.cards == 0 and len(cards(db)) == 5
@@ -122,14 +122,14 @@ def test_only_allowed_targets_are_ever_queued(data):
         ],
         domains=[evil],
     )
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, data, d, "r", NOW)
     targets = {i["patch"]["target"] for c in cards(db) for i in c.payload["items"]}
     assert targets <= ALLOWED
 
 
 def test_basics_role_goes_to_summary_or_memory(ctx, data):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     n = queue_basics(
         db, data, "Avery Quinn", "Exampleville", "EX", "Testland", "Platform engineer", NOW
     )
@@ -149,7 +149,7 @@ def test_unparseable_dates_block_the_card_and_titles_are_one_line(data):
             {"company": "Fine Inc", "position": "Dev", "start": "2020-01"},
         ],
     )
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, data, d, "r", NOW)
     rows = cards(db)
     assert any(c.payload["section"] == "education" for c in rows)  # "Bachelor" accepted

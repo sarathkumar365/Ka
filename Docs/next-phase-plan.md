@@ -1,6 +1,6 @@
 # Ka next phase: implementation plan
 
-**Status (2026-11-20):** built on branch `next-phase`, uncommitted, all tasks done; owner steps in `Docs/post-build-setup.md`.
+**Status (2026-11-20):** built and merged. Later the same day the one-account rule here was withdrawn: Ka is multi-account (`Docs/superpowers/specs/2026-11-20-multi-account-design.md`); legacy data claim, `setup` and `only_user` are gone.
 
 Source: the "Next phase" part of the design doc (private copy in the data repo, `docs/ka-design.md`;
 redacted decisions in `context/decisions.md`). Task-by-task steps:

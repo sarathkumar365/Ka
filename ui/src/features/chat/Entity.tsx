@@ -13,10 +13,15 @@ const LIGHTS = [0, 1, 2, 3, 4, 5]
  * whose position, size and corners change per phase, a faint copy that trails it, the wobbly
  * thinking ring from the design's entity board, and up to six lights for the cards waiting in Pending.
  */
-export function Entity({ mode }: { mode: EntityMode }) {
+/** `lights` fixes the Pending lights (the signed-out home screen has no Pending to ask about). */
+export function Entity({ mode, lights }: { mode: EntityMode; lights?: number }) {
   const [beat, setBeat] = useState(0)
   const [sw, setSw] = useState(false)
-  const { data: pending = [] } = useQuery({ queryKey: keys.pending, queryFn: api.pending })
+  const { data: pending = [] } = useQuery({
+    queryKey: keys.pending,
+    queryFn: api.pending,
+    enabled: lights === undefined,
+  })
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -37,7 +42,7 @@ export function Entity({ mode }: { mode: EntityMode }) {
   const e = entityStyle(mode, beat, sw)
   const box = { left: e.l, top: e.t, width: e.w, height: e.h, borderRadius: e.r }
   const lit = mode === 'empty' || mode === 'answering' || mode === 'waiting' || mode === 'docked'
-  const count = lit ? pending.length : 0
+  const count = lights ?? (lit ? pending.length : 0)
   return (
     <div className="entity-stage">
       <div className="entity-trail" aria-hidden="true" style={{ ...box, transition: e.tr2 }} />

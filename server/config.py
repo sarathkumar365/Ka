@@ -1,9 +1,12 @@
+import logging
 import os
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 from ruamel.yaml import YAML, YAMLError
+
+log = logging.getLogger(__name__)
 
 
 class ConfigError(Exception):
@@ -34,8 +37,7 @@ class GoogleConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     client_file: Path  # OAuth desktop client JSON; used in place, never copied
-    # Personal: read from users/<id>/settings.yaml. Still accepted here so an older config loads;
-    # account setup copies them into the user's settings.
+    # Per account: filled from users/<id>/settings.yaml by user_config; refused in config.yaml.
     drive_folder_id: str | None = None
     sheet_id: str | None = None
 
@@ -109,7 +111,9 @@ class Config(BaseModel):
 
     @property
     def denylist_path(self) -> Path:
+        """Shared by every account; read by the commit guard (scripts/commit_guard.py)."""
         return (self.repo_root or self.data_repo) / "local" / "denylist.txt"
+
 
     @property
     def intake_dir(self) -> Path:
@@ -126,6 +130,13 @@ def load_config(path: Path | None = None) -> Config:
         raw = YAML(typ="safe").load(chosen.read_text()) or {}
     except YAMLError as e:
         raise ConfigError(f"{chosen}: invalid YAML") from e
+    google = raw.get("google") if isinstance(raw.get("google"), dict) else {}
+    for key in ("drive_folder_id", "sheet_id"):
+        if google.pop(key, None) is not None:  # each account sets its own in Settings
+            log.warning("config.yaml google.%s is ignored: each account sets it in Settings", key)
+    per_account = sorted({"user_id", "repo_root"} & set(raw))
+    if per_account:  # set per request from the signed-in account, never in the file
+        raise ConfigError(f"{chosen}: not allowed in config.yaml: {', '.join(per_account)}")
     try:
         return Config(**raw)
     except ValidationError as e:

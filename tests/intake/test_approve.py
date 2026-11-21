@@ -15,7 +15,7 @@ TODAY = date(2031, 4, 6)
 
 @pytest.fixture
 def queued(ctx):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     queue_draft(db, load_data(ctx.config.data_repo), draft(), "r.pdf", NOW)
     cards = {(c.payload["section"], c.payload["title"]): c for c in db.list_pending()}
     return ctx.config.data_repo, db, cards
@@ -69,7 +69,7 @@ def test_approving_twice_is_refused_and_writes_once(queued):
 
 
 def test_blocked_card_and_bad_selection_are_refused(ctx):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     d = draft(profile={}, education=[], domains=[], jobs=[{"company": "NoDate", "position": "x"}])
     queue_draft(db, load_data(ctx.config.data_repo), d, "r", NOW)
     [card] = db.list_pending()

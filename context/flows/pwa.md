@@ -1,6 +1,6 @@
 # Flow: PWA and phone access
 
-**Summary.** The UI is an installable web app: manifest, icons, iOS meta tags, safe-area padding and a service worker that caches the app shell only. `/api` is never cached. The server listens on `127.0.0.1` only; a phone reaches it through `tailscale serve`.
+**Summary.** The UI is an installable web app: manifest, icons, iOS meta tags, safe-area padding and a service worker that caches the app shell only. `/api` is never cached. The server listens on `127.0.0.1` only; a phone reaches it through `tailscale serve`. The start URL `/chat` sends a signed-out person to the home screen (`/welcome`), then sign-up or sign-in.
 
 ## New machine
 

@@ -6,7 +6,7 @@ NOW = datetime(2031, 4, 5, 12, 0, tzinfo=UTC)
 
 
 def test_messages_roundtrip_and_fts_finds_words_in_any_role():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cid = db.new_conversation(NOW)
     db.add_message(cid, {"role": "user", "content": "I prefer remote roles"}, NOW)
     db.add_message(cid, {"role": "assistant", "content": "Noted, remote it is"}, NOW)
@@ -19,7 +19,7 @@ def test_messages_roundtrip_and_fts_finds_words_in_any_role():
 
 
 def test_search_survives_fts_syntax_in_query():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cid = db.new_conversation(NOW)
     db.add_message(cid, {"role": "user", "content": "hello world"}, NOW)
     assert db.search('" OR *') == []
@@ -27,7 +27,7 @@ def test_search_survives_fts_syntax_in_query():
 
 
 def test_interrupted_tool_calls_are_repaired_on_read():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cid = db.new_conversation(NOW)
     db.add_message(cid, {"role": "user", "content": "go"}, NOW)
     calls = [
@@ -43,7 +43,7 @@ def test_interrupted_tool_calls_are_repaired_on_read():
 
 
 def test_pending_queue_roundtrip_and_dedupe():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     pid = db.add_pending("memory", {"text": "likes tea"}, "C-1", NOW, key="likes tea")
     assert db.pending_exists("memory", "likes tea")
     [item] = db.list_pending()
@@ -54,14 +54,14 @@ def test_pending_queue_roundtrip_and_dedupe():
 
 
 def test_tool_output_is_not_searchable():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cid = db.new_conversation(NOW)
     db.add_message(cid, {"role": "tool", "tool_call_id": "a", "content": "Corner Cafe -4.50"}, NOW)
     assert db.search("Corner") == []
 
 
 def test_list_conversations_titles_and_orders():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     old = db.new_conversation(NOW)
     db.add_message(old, {"role": "user", "content": "x" * 200}, NOW)
     new = db.new_conversation(NOW)
@@ -77,7 +77,7 @@ def test_list_conversations_titles_and_orders():
 
 
 def test_activity_newest_first():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     db.add_activity("read", "first", NOW)
     db.add_activity("change", "second", NOW, "C-1")
     rows = db.list_activity()
@@ -88,7 +88,7 @@ def test_activity_newest_first():
 def test_shared_threads_db_can_move_between_threads(tmp_path):
     import threading
 
-    db = Db(tmp_path / "t.db", shared_threads=True)
+    db = Db(tmp_path / "t.db", "avery", shared_threads=True)
     errors = []
 
     def use():
@@ -105,9 +105,28 @@ def test_shared_threads_db_can_move_between_threads(tmp_path):
 
 
 def test_app_state_roundtrip():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     assert db.get_state("onboarding_done") is None
     db.set_state("onboarding_done", "1")
     assert db.get_state("onboarding_done") == "1"
     db.set_state("onboarding_done", "0")
     assert db.get_state("onboarding_done") == "0"
+
+
+def test_two_accounts_never_see_each_other(tmp_path):
+    import pytest
+
+    when = datetime(2026, 11, 20)
+    path = tmp_path / "ka.db"
+    a, b = Db(path, "u_a"), Db(path, "u_b")
+    ca = a.new_conversation(when)
+    a.add_message(ca, {"role": "user", "content": "secret pancakes"}, when)
+    a.add_pending("memory", {"text": "x"}, "chat", when)
+    assert b.search("pancakes") == [] and b.list_conversations() == [] and b.list_pending() == []
+    assert b.messages(ca) == [] and not b.conversation_exists(ca)
+    with pytest.raises(KeyError):
+        b.add_message(ca, {"role": "user", "content": "hi"}, when)
+    assert len(ca.rsplit("-", 1)[1]) == 16
+    assert len(a.new_intake_job("documents", when).rsplit("-", 1)[1]) == 16
+    hit = a.conn.execute("select user_id from message_fts").fetchone()
+    assert hit == ("u_a",)

@@ -3,7 +3,7 @@ from server.store.db import Db
 
 
 def test_propose_memory_queues_with_conversation_as_source(ctx):
-    ctx.db, ctx.conversation_id = Db(":memory:"), "C-1"
+    ctx.db, ctx.conversation_id = Db(":memory:", "avery"), "C-1"
     out = run_tool("propose_memory", {"text": "Owns a bike", "type": "fact"}, ctx)
     assert out["queued"] is True
     [item] = ctx.db.list_pending()

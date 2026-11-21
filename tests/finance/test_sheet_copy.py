@@ -12,7 +12,7 @@ NOW = datetime(2031, 4, 24, 9, 0)
 def test_push_writes_all_rows_as_text(ctx, tmp_path):
     store = CsvFinanceStore(tmp_path / "fin")
     store.add_import(STATEMENT, [tx(1)])
-    sheets, db = FakeSheets(), Db(":memory:")
+    sheets, db = FakeSheets(), Db(":memory:", "avery")
     assert push_sheet(sheets, "S", store, db, NOW) is True
     header, row = sheets.tabs["Transactions"]
     assert row[header.index("amount")] == "-1250.00"
@@ -23,7 +23,7 @@ def test_push_writes_all_rows_as_text(ctx, tmp_path):
 def test_push_failure_keeps_csv_and_records_error(tmp_path):
     store = CsvFinanceStore(tmp_path / "fin")
     store.add_import(STATEMENT, [tx(1)])
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     assert push_sheet(FakeSheets(fail=OSError("sheet gone")), "S", store, db, NOW) is False
     assert len(store.transactions()) == 1
     assert "sheet gone" in db.get_state("sheet_status")

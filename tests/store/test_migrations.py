@@ -1,26 +1,27 @@
 import sqlite3
 from datetime import datetime
 
+import pytest
+
 from server.store.db import Db
-from server.store.migrations import backfill_user, migrate
+from server.store.migrations import migrate
 from tests.store.old_schema import OLD_SCHEMA
 
 NOW = datetime(2031, 4, 5, 12, 0)
 
 
-def test_migration_backfills_existing_rows(tmp_path):
+def test_old_schema_upgrades(tmp_path):
     path = tmp_path / "ka.db"
     old = sqlite3.connect(path)
     old.executescript(OLD_SCHEMA)
-    old.execute("insert into conversations values ('C-1', '2031-01-01')")
-    old.execute("insert into app_state values ('drive_seen', '[1]')")
     old.commit()
     old.close()
-    db = Db.system(path)
-    backfill_user(db.conn, "avery")
-    assert Db(path, "avery").list_conversations()[0].id == "C-1"
-    assert Db(path, "avery").get_state("drive_seen") == "[1]"
-    assert Db(path, "blake").list_conversations() == []
+    assert Db(path, "avery").list_conversations() == []
+
+
+def test_db_needs_a_user(tmp_path):
+    with pytest.raises(ValueError, match="Db needs a user"):
+        Db(tmp_path / "k.db", "")
 
 
 def test_rows_are_scoped_to_their_user(tmp_path):

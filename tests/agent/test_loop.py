@@ -16,7 +16,7 @@ def call(name, args="{}", id="c1"):
 
 
 def ask(ctx, replies, approve=lambda p: True, text="hi"):
-    ctx.db = Db(":memory:")
+    ctx.db = Db(":memory:", "avery")
     cid = ctx.db.new_conversation(NOW())
     adapter = FakeAdapter(replies)
     answer = run_turn(
@@ -102,7 +102,7 @@ def test_adapter_error_leaves_user_message_saved(ctx):
         def complete(self, messages, tools):
             raise AdapterError("model unavailable after retries")
 
-    ctx.db = Db(":memory:")
+    ctx.db = Db(":memory:", "avery")
     cid = ctx.db.new_conversation(NOW())
     with pytest.raises(AdapterError):
         run_turn(
@@ -148,7 +148,7 @@ def _private_turn(ctx, db, cid, default, private, text="spend?"):
 
 
 def test_switches_within_turn(ctx, tmp_path):
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     default = FakeAdapter([Reply(tool_calls=[call("finance_coverage")])])
     private = FakeAdapter([Reply(text="You spent 10.")])
@@ -157,7 +157,7 @@ def test_switches_within_turn(ctx, tmp_path):
 
 
 def test_private_persists_across_turns(ctx, tmp_path):
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     _private_turn(
         ctx,
@@ -166,7 +166,7 @@ def test_private_persists_across_turns(ctx, tmp_path):
         FakeAdapter([Reply(tool_calls=[call("finance_coverage")])]),
         FakeAdapter([Reply(text="ok")]),
     )
-    again = Db(tmp_path / "k.db")
+    again = Db(tmp_path / "k.db", "avery")
     default, private = FakeAdapter([]), FakeAdapter([Reply(text="still private")])
     assert _private_turn(ctx, again, cid, default, private, "and now?") == "still private"
     assert default.calls == []
@@ -179,7 +179,7 @@ def test_chain_down_never_uses_default(ctx, tmp_path):
         def complete(self, messages, tools):
             raise AdapterError("down")
 
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     default = FakeAdapter([Reply(tool_calls=[call("finance_coverage")])])
     with pytest.raises(AdapterError, match="private model unavailable"):
@@ -188,7 +188,7 @@ def test_chain_down_never_uses_default(ctx, tmp_path):
 
 
 def test_search_hit_from_private_chat_moves_caller_private(ctx, tmp_path):
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     a = db.new_conversation(NOW())
     db.add_message(a, {"role": "assistant", "content": "groceries cost 812.40"}, NOW())
     db.mark_private(a)
@@ -202,7 +202,7 @@ def test_search_hit_from_private_chat_moves_caller_private(ctx, tmp_path):
 
 
 def test_search_hit_in_finance_files_moves_private(ctx, tmp_path):
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     default = FakeAdapter([Reply(tool_calls=[call("search", '{"query": "corner"}')])])
     private = FakeAdapter([Reply(text="ok")])
@@ -211,7 +211,7 @@ def test_search_hit_in_finance_files_moves_private(ctx, tmp_path):
 
 
 def test_plain_search_stays_on_default(ctx, tmp_path):
-    db = Db(tmp_path / "k.db")
+    db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     default = FakeAdapter(
         [Reply(tool_calls=[call("search", '{"query": "react"}')]), Reply(text="H-003")]

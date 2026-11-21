@@ -28,6 +28,26 @@ class GoogleAuthError(Exception):
     """Safe to show: never contains tokens or secrets."""
 
 
+class GoogleSetupMissing(GoogleAuthError):
+    """This account has not set its own Drive folder or Sheet; never fall back to anyone's."""
+
+
+DRIVE_MISSING = "Your Google Drive folder is not set up yet. Add it in Settings to import statements."
+SHEET_MISSING = "Your Google Sheet is not set up yet. Add it in Settings to keep a Sheet copy."
+
+
+def require_drive(cfg) -> str:
+    if cfg.google is None or not cfg.google.drive_folder_id:
+        raise GoogleSetupMissing(DRIVE_MISSING)
+    return cfg.google.drive_folder_id
+
+
+def require_sheet(cfg) -> str:
+    if cfg.google is None or not cfg.google.sheet_id:
+        raise GoogleSetupMissing(SHEET_MISSING)
+    return cfg.google.sheet_id
+
+
 class GoogleUnreachable(GoogleAuthError):
     """Network trouble: the sign-in is still good, so do not ask the owner to reconnect."""
 

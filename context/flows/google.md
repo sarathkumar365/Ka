@@ -1,6 +1,6 @@
 # Flow: Google (Drive inbox and Sheet copy)
 
-**Summary.** The owner drops a statement PDF into a Drive folder from any device. Every 30 minutes, or on "Sync now", Ka downloads new PDFs, checks them with the normal model-free import, and queues one import card per file in Pending. Imports approved in Pending or by `ka import`, and categories approved in Pending, are copied to a Google Sheet (a chat import or a terminal approval goes up with the next copy or Copy now); the local CSV stays the source of truth, so Google being down only delays the copy.
+**Summary.** Each account connects its own Google account and sets its own Drive folder and Sheet in Settings; nothing is shared between accounts or taken from `config.yaml`. A person drops a statement PDF into their Drive folder from any device. Every 30 minutes, or on "Sync now", Ka downloads new PDFs, checks them with the normal model-free import, and queues one import card per file in Pending. Imports approved in Pending or by `ka import`, and categories approved in Pending, are copied to a Google Sheet (a chat import or a terminal approval goes up with the next copy or Copy now); the local CSV stays the source of truth, so Google being down only delays the copy.
 
 ```mermaid
 flowchart LR
@@ -14,8 +14,8 @@ flowchart LR
 
 ## Worked example
 
-1. Owner signs in once: Settings > Connected accounts > Google > Connect (or `ka google login`). `oauth.GoogleAuth` runs the installed-app OAuth flow with PKCE; the loopback callback `http://127.0.0.1:<port>/api/google/callback` checks the `state` it issued, then stores the refresh token in `ka-data/local/google/token.json` (mode 0600). Scopes: `drive.readonly`, `spreadsheets`, `openid`, `userinfo.email`.
-2. The `drive_sync` APScheduler job (`drive_inbox.drive_job`) calls `run_sync`, which builds `ApiDrive` (Drive API v3 through `google-api-python-client`) and lists PDFs in `google.drive_folder_id`.
+1. The person connects once: Settings > Connected accounts > Google > Connect (or `ka --user NAME google login`). `api/google.py` keeps one `oauth.GoogleAuth` per account (`app.state.google_auths`), so tokens, status and Disconnect never cross accounts. It runs the OAuth flow with PKCE; the callback URL is built from the address the browser used (`X-Forwarded-Proto`/`X-Forwarded-Host` when the tailnet proxy forwards it), checks the `state` it issued, then stores the refresh token in `users/<id>/local/google/token.json` (mode 0600). Scopes: `drive.readonly`, `spreadsheets`, `openid`, `userinfo.email`. Below that, the person enters the Drive folder id and Sheet id; `PUT /api/google/settings` writes them to `users/<id>/settings.yaml` and commits.
+2. The `drive_sync` job runs `drive_inbox.drive_job` once per account (`server/jobs.py` `for_each_account`; with loops on, the statement loop does this instead). `run_sync` builds `ApiDrive` (Drive API v3 through `google-api-python-client`) and lists PDFs in that account's folder; with no folder set, `require_drive` raises `GoogleSetupMissing`: "Your Google Drive folder is not set up yet. Add it in Settings to import statements."
 3. For an unseen file id, `sync_drive` downloads it into `statements_dir` (temp file, then rename), runs `prepare_import`, and adds a `statement` card with period, row count, money in and out as text, check failures and `already_imported`. The file id goes into `app_state.drive_seen`, so a renamed file is not fetched again.
 4. Import on the card calls `approve_statement`: it re-runs `prepare_import` on the stored file, so a stale preview is never written, then `commit_import`. In the background, `push_from_config` replaces both Sheet tabs with every stored row (`valueInputOption=RAW`, so `-12.30` stays text), and category suggestions run if that flag is on.
 
@@ -32,10 +32,11 @@ flowchart LR
 | Not signed in, token revoked or expired | Settings shows "Not connected"; sync and copy record `reconnect Google`, and Settings then offers Reconnect instead of Disconnect |
 | Non-statement PDF in the folder | Skipped once with its reason in Settings; deleted locally |
 | Same statement uploaded twice | `already_imported` is recomputed each time Pending loads; Import is disabled, and a server refusal closes the duplicate card |
-| Two syncs at once (job and button) | One process lock; one card per file |
+| Two syncs at once (job and button) | One lock per account; one card per file; other accounts never wait |
+| No Drive folder or Sheet set for this account | Sync, copy and the statement loop say it is not set up yet; nothing uses another account's |
 | Sheet deleted or tab renamed | Copy fails with a status line and an activity row; the CSV is untouched; the next copy recreates tabs |
 | One file fails to download | listed as "will retry"; other files still become cards; that file is tried again next sync |
 | Offline | "Google unreachable", not "reconnect": the sign-in stays and Settings keeps showing the last status |
-| Two Sheet copies at once | one lock; the store is read inside it, so the newest copy wins |
+| Two Sheet copies at once | one lock per account; the store is read inside it, so the newest copy wins |
 
 Source: `server/integrations/google/{oauth,drive,sheets}.py`, `server/finance/{drive_inbox,sheet_copy}.py`, `server/api/google.py`, `ui/src/features/settings/GoogleSection.tsx`, `ui/src/features/pending/StatementCard.tsx`.

@@ -10,7 +10,7 @@ TODAY = date(2031, 4, 10)
 
 
 def test_catch_up_runs_each_missed_day_once(ctx):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     db.set_state(LAST_DAY, (TODAY - timedelta(days=3)).isoformat())
     days: list[date] = []
 
@@ -24,7 +24,7 @@ def test_catch_up_runs_each_missed_day_once(ctx):
 
 
 def test_first_run_and_long_gap_are_bounded(ctx):
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     seen: list[date] = []
     catch_up_extraction(
         ctx.config, db, lambda: object(), TODAY, extract=lambda d, *a, **k: seen.append(d)
@@ -39,7 +39,7 @@ def test_first_run_and_long_gap_are_bounded(ctx):
 
 
 def test_failed_run_logs_and_survives(tmp_path, ctx):
-    cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
 
     def broken():
         raise AdapterError("OPENAI_API_KEY not set")
@@ -77,7 +77,7 @@ def test_app_starts_scheduler_only_when_asked(ctx):
 def test_provider_outage_does_not_mark_day_done(ctx):
     from datetime import datetime as dt
 
-    cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
     db = Db(cfg.db_path, cfg.user_id)
     cid = db.new_conversation(dt(2031, 4, 9, 10, 0))
     db.add_message(cid, {"role": "user", "content": "I moved"}, dt(2031, 4, 9, 10, 0))
@@ -99,7 +99,7 @@ def test_overlapping_runs_extract_each_day_once(ctx, monkeypatch):
 
     import server.scheduler as sched
 
-    cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
     days: list = []
 
     def slow(day, *a, **k):
@@ -129,7 +129,7 @@ def test_cron_runs_late_after_sleep():
 def test_db_failure_does_not_disable_later_runs(ctx, monkeypatch):
     import server.scheduler as sched
 
-    cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
     job = nightly_job(cfg, lambda: object(), today=lambda: TODAY)
     real = sched.Db
     monkeypatch.setattr(sched, "Db", lambda *a, **k: (_ for _ in ()).throw(OSError("locked")))
@@ -139,3 +139,18 @@ def test_db_failure_does_not_disable_later_runs(ctx, monkeypatch):
     monkeypatch.setattr(sched, "extract_memories", lambda d, *a, **k: seen.append(d))
     job.run()
     assert seen == [TODAY - timedelta(days=1)]
+
+
+def test_an_account_ahead_of_the_server_never_extracts_a_half_day(ctx, monkeypatch):
+    """Messages are stamped in server time; a zone ahead must not end the server's day early."""
+    from datetime import date
+
+    import server.users
+
+    server_today = date.today()
+    monkeypatch.setattr(server.users, "local_today", lambda cfg: server_today + timedelta(days=1))
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
+    seen = []
+    monkeypatch.setattr("server.scheduler.catch_up_extraction", lambda c, d, a, today, **k: seen.append(today) or [])
+    nightly_job(cfg, lambda: object()).run()
+    assert seen == [server_today]

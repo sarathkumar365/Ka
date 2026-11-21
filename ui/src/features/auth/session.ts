@@ -1,6 +1,6 @@
-/** Session recovery: when the session ends mid-use, remember where the owner was and what they
- * had typed, send them to login, and put both back afterwards. sessionStorage only: it dies with
- * the tab and never leaves this device. */
+/** Session recovery: when the session ends mid-use, remember where the person was and what they
+ * had typed, send them to login, and put both back afterwards, only for that same account.
+ * sessionStorage only: it dies with the tab and never leaves this device. */
 
 const RETURN = 'ka:return'
 const DRAFT = 'ka:draft'
@@ -29,39 +29,56 @@ function read(key: string): string | null {
   }
 }
 
-export function saveReturn(path: string, draft: string) {
-  store(RETURN, JSON.stringify({ path, draft }))
+let currentUser: string | null = null
+
+/** Set from every auth status read, so a saved place and draft know whose they are. */
+export function rememberUser(username: string | null) {
+  currentUser = username
 }
 
-/** Read the return target once; its draft moves to the composer's slot. */
-export function takeReturn(): { path: string; draft: string } | null {
+type Saved = { path: string; draft: string; username: string | null }
+
+export function saveReturn(path: string, draft: string, username: string | null) {
+  store(RETURN, JSON.stringify({ path, draft, username }))
+}
+
+/** Read the return target once, only for the account that left it; its draft moves to the
+ * composer's slot. Another account signing in on this device gets nothing. */
+export function takeReturn(username: string): { path: string; draft: string } | null {
   const raw = read(RETURN)
   store(RETURN, null)
   if (!raw) return null
   try {
-    const r = JSON.parse(raw) as { path: string; draft: string }
-    if (r.draft) store(DRAFT, r.draft)
-    return r
+    const r = JSON.parse(raw) as Saved
+    if (!r.username || r.username !== username) return null
+    if (r.draft) store(DRAFT, JSON.stringify({ draft: r.draft, username }))
+    return { path: r.path, draft: r.draft }
   } catch {
     return null
   }
 }
 
 export function takeDraft(): string {
-  const d = read(DRAFT) ?? ''
+  const raw = read(DRAFT)
   store(DRAFT, null)
-  return d
+  if (!raw) return ''
+  try {
+    const d = JSON.parse(raw) as { draft: string; username: string }
+    return currentUser && d.username === currentUser ? d.draft : ''
+  } catch {
+    return ''
+  }
 }
 
 /** `sent` is a message on its way out: the composer already cleared it, so keep it here. */
 export function capture(path: string, sent = '') {
-  const safe = path.startsWith('/login') ? '/chat' : path
-  saveReturn(safe, draftSource?.() || sent)
+  const safe = /^\/(login|signup|welcome)/.test(path) ? '/chat' : path
+  saveReturn(safe, draftSource?.() || sent, currentUser)
 }
 
 /** Called by the API client on any 401: keep the place, then show the login screen. */
 export function onUnauthorized(sent = '') {
-  if (window.location.pathname.startsWith('/login')) return
+  if (/^\/(login|signup|welcome)/.test(window.location.pathname)) return
   capture(window.location.pathname, sent)
   window.location.assign('/login')
 }

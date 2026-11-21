@@ -1,4 +1,4 @@
-/** The onboarding steps, account first. Setup shows step 1; OnboardingPage shows the rest. */
+/** The onboarding steps, account first. SignupPage shows step 1; OnboardingPage shows the rest. */
 export const STEPS = ['Account', 'Basics', 'Documents', 'Sources', 'Memory', 'Send']
 
 /** The server's rules, from /api/auth/status, so the form never drifts from them. */

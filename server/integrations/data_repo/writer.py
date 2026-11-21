@@ -1,7 +1,6 @@
 """Safe edits to the data repo: patch, validate the whole repo, diff in memory, then lock and commit."""
 
 import difflib
-import fcntl
 import shutil
 import subprocess
 import tempfile
@@ -12,6 +11,8 @@ from typing import Any, Literal
 
 from pydantic import Field
 from ruamel.yaml import YAML
+
+from server.locks import repo_lock
 
 from .loader import DataRepoError, load_data
 from .schemas.common import KaModel
@@ -246,8 +247,8 @@ def plan_batch(root: Path, patches: list[Patch], message: str) -> ChangePlan:
 
 def apply_change(root: Path, plan: ChangePlan) -> str:
     paths = sorted(plan.files)
-    with open(root / ".ka.lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    # every account's folder is in one git repo: one lock at its top, so commits never overlap
+    with repo_lock(Path(_git(root, "rev-parse", "--show-toplevel"))):
         for path, (old, _) in plan.files.items():
             if (root / path).read_text() != old:
                 raise ChangeError(f"{path} changed since proposal")

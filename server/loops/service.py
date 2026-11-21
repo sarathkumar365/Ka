@@ -29,12 +29,14 @@ def execute(
 
             def body(t, rc):
                 from server.integrations.google.drive import ApiDrive
-                from server.integrations.google.oauth import auth_for
+                from server.integrations.google.oauth import DRIVE_MISSING, auth_for
 
                 g = ucfg.google
-                if not is_on(cfg, "google") or g is None or not g.drive_folder_id:
+                if not is_on(cfg, "google") or g is None:
                     return {"new": 0, "imported": 0, "queued": 0,
                             "skipped": ["Google Drive not connected; nothing to check"]}  # fmt: skip
+                if not g.drive_folder_id:
+                    return {"new": 0, "imported": 0, "queued": 0, "skipped": [DRIVE_MISSING]}
                 drive = ApiDrive(auth_for(ucfg).credentials())
                 return statement_import_body(t, rc, drive, ucfg, db, now)
 

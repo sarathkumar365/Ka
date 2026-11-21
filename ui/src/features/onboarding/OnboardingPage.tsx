@@ -10,7 +10,7 @@ import { type SendPhase, StepSend } from './StepSend'
 import { StepSources } from './StepSources'
 import { Progress } from '../auth/AuthFrame'
 
-// account creation is step 1 (SetupStep); these follow it
+// account creation is step 1 (SignupPage); these follow it
 const LABELS = ['Basics', 'Documents', 'Sources', 'Memory', 'Send']
 
 export function OnboardingPage() {

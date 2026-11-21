@@ -73,7 +73,12 @@ class LoopScheduler:
             self._add(job_id, user_id, t)
 
     def _add(self, job_id: str, user_id: str, t: ScheduledTask) -> None:
-        extra = {}
+        from server.users import user_config, user_tz
+
+        extra: dict = {}
+        tz = user_tz(user_config(self.cfg, user_id))
+        if tz is not None and t.trigger.get("type") == "cron":
+            extra["timezone"] = tz  # "every day at 8" means 8 where the person lives
         if t.builtin:  # built-ins also run once at start, so a missed folder check catches up
             extra["next_run_time"] = datetime.now()
         try:  # one bad stored task must never stop the others or the server from starting

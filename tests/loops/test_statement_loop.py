@@ -125,19 +125,17 @@ def test_scheduler_follows_task_changes(env):
 
 
 def test_server_schedules_builtin_task_for_new_account(tmp_path):
-    import shutil
 
     from fastapi.testclient import TestClient
 
     from server.agent.adapters import FakeAdapter
     from server.api.app import create_app
     from tests.api.test_auth import PW
-    from tests.conftest import FIXTURE, git
+    from tests.conftest import git
 
     root = tmp_path / "data"
-    shutil.copytree(FIXTURE, root)
-    (root / "memory" / "core.yaml").rename(root / "memory.yaml")
-    shutil.rmtree(root / "memory")
+    root.mkdir()
+    (root / ".gitignore").write_text("local/\n.ka.lock\n")
     for args in (("init", "-q", "-b", "main"), ("config", "user.email", "t@example.test"),
                  ("config", "user.name", "T"), ("add", "-A"), ("commit", "-q", "-m", "init")):
         git(root, *args)
@@ -145,9 +143,9 @@ def test_server_schedules_builtin_task_for_new_account(tmp_path):
 
     cfg = Config(data_repo=root, flags={"loops": True})
     with TestClient(create_app(cfg, lambda: FakeAdapter([]), start_scheduler=True), base_url="http://localhost") as c:
-        c.post("/api/auth/setup", json={"username": "avery", "password": PW})
+        uid = c.post("/api/auth/signup", json={"username": "avery", "password": PW}).json()["user"]
         jobs = [j.id for j in c.app.state.loops.scheduler.get_jobs()]
-    assert "loop:avery:avery:statement_import" in jobs
+    assert f"loop:{uid}:{uid}:statement_import" in jobs
 
 
 def test_bad_cron_is_refused_and_never_breaks_the_scheduler(env):

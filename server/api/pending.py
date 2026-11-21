@@ -11,6 +11,7 @@ from server.finance.store import CsvFinanceStore
 from server.flags import is_on
 from server.intake.approve import approve_bundle, reject_bundle
 from server.integrations.data_repo.loader import load_data
+from server.locks import user_lock
 from server.memory.pending import (
     PendingError,
     approve_pending,
@@ -103,7 +104,8 @@ def approve(
 ):
     item = _item(db, item_id)
     try:
-        with request.app.state.pending_lock:  # check, commit and status update must not interleave
+        # check, commit and status update must not interleave (per account)
+        with user_lock("pending", cfg.user_id):
             if item.kind == "statement":
                 result = approve_statement(
                     item_id, cfg, db, CsvFinanceStore(cfg.finance_dir, cfg.user_id)
@@ -149,7 +151,7 @@ def approve(
 def reject(item_id: int, request: Request, db: Db = Depends(get_db)):
     item = _item(db, item_id)
     try:
-        with request.app.state.pending_lock:
+        with user_lock("pending", db.user_id):
             if item.kind == "statement":
                 reject_statement(item_id, db)
             elif item.kind == "bundle":

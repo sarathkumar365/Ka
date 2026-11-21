@@ -68,7 +68,10 @@ def test_cli_import_prompt_and_statements_list(tmp_path, monkeypatch, capsys):
     cfg = tmp_path / "c.yaml"
     cfg.write_text(f"data_repo: {tmp_path / 'base'}\n")
     monkeypatch.setenv("KA_CONFIG", str(cfg))
+    from server.config import Config
+    from tests.conftest import add_account
 
+    add_account(Config(data_repo=tmp_path / "base"))
     monkeypatch.setattr("builtins.input", lambda _: "n")
     assert main(["--user", "avery", "import", str(pdf)]) == 0
     assert "declined" in capsys.readouterr().out

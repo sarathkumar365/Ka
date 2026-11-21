@@ -1,4 +1,4 @@
-import { onUnauthorized } from '../features/auth/session'
+import { onUnauthorized, rememberUser } from '../features/auth/session'
 
 export class ApiError extends Error {
   status: number
@@ -105,7 +105,7 @@ export type AlertRow = {
   created_at: string
 }
 export type PendingRow = MemoryRow | BundleRow | StatementRow | ToolWriteRow | AlertRow
-export type AuthStatus = { setup_needed: boolean; user: string | null; min_password: number; username_rule: string }
+export type AuthStatus = { user: string | null; username: string | null; min_password: number; username_rule: string }
 export type TaskRun = {
   id: number
   task_id: string
@@ -178,7 +178,10 @@ export type Settings = {
   flags: Record<string, boolean>
   flag_info: { name: string; description: string; on: boolean }[]
   loops_paused: boolean
+  google: GoogleIds
 }
+
+export type GoogleIds = { drive_folder_id: string | null; sheet_id: string | null }
 
 export const keys = {
   conversations: ['conversations'] as const,
@@ -209,6 +212,8 @@ export const api = {
   googleSync: () => call<{ new: number; skipped: string[] }>('/google/sync', { method: 'POST' }),
   googlePush: () => post('/google/push'),
   googleDisconnect: () => post('/google/disconnect'),
+  googleSave: (ids: GoogleIds) =>
+    call<{ ok: boolean }>('/google/settings', { method: 'PUT', body: JSON.stringify(ids) }),
   onboardingStatus: () => call<OnboardingStatus>('/onboarding/status'),
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
   async sendOnboarding(form: FormData): Promise<{ job_id: string }> {
@@ -220,9 +225,13 @@ export const api = {
     return res.json()
   },
   answerApproval: (id: string, approve: boolean) => post(`/approvals/${id}`, { approve }),
-  authStatus: () => call<AuthStatus>('/auth/status'),
+  authStatus: () =>
+    call<AuthStatus>('/auth/status').then((s) => {
+      rememberUser(s.username)
+      return s
+    }),
   login: (username: string, password: string) => post('/auth/login', { username, password }),
-  setup: (username: string, password: string) => post('/auth/setup', { username, password }),
+  signup: (username: string, password: string) => post('/auth/signup', { username, password }),
   logout: () => post('/auth/logout'),
   loops: () => call<LoopTask[]>('/loops'),
   createLoop: (body: NewLoop) => post('/loops', body) as Promise<LoopTask>,

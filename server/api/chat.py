@@ -70,7 +70,7 @@ def chat(body: ChatBody, request: Request):
     def approve(p: PendingWrite) -> bool:
         if cancelled.is_set():
             return False
-        approval_id = state.broker.request()
+        approval_id = state.broker.request(cfg.user_id)
         open_ids.append(approval_id)
         if cancelled.is_set():  # the stream closed between the check above and now
             state.broker.resolve(approval_id, False)
@@ -153,6 +153,6 @@ def chat(body: ChatBody, request: Request):
 
 @router.post("/approvals/{approval_id}")
 def answer_approval(approval_id: str, body: ApprovalBody, request: Request):
-    if not request.app.state.broker.resolve(approval_id, body.approve):
+    if not request.app.state.broker.resolve(approval_id, body.approve, request.state.user_id):
         raise HTTPException(404, "no such open approval")
     return {"ok": True}

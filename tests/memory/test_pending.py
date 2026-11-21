@@ -13,7 +13,7 @@ TODAY = date(2031, 4, 5)
 
 @pytest.fixture
 def setup(ctx):
-    return ctx.config.data_repo, Db(":memory:")
+    return ctx.config.data_repo, Db(":memory:", "avery")
 
 
 def queue(db, repo, text, replaces=None, type="fact"):

@@ -49,6 +49,10 @@ def test_cli_check(tmp_path, monkeypatch, capsys):
     cfg = tmp_path / "c.yaml"
     cfg.write_text(f"data_repo: {tmp_path / 'base'}\n")
     monkeypatch.setenv("KA_CONFIG", str(cfg))
+    from server.config import Config
+    from tests.conftest import add_account
+
+    add_account(Config(data_repo=tmp_path / "base"))
     assert main(["--user", "avery", "check"]) == 0
     assert "ok: 11 files" in capsys.readouterr().out
     (repo / "ids.yaml").write_text("next: {H: 1}\n")

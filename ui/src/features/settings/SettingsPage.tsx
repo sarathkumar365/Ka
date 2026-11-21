@@ -75,6 +75,7 @@ function LoopsSwitch({ paused }: { paused: boolean }) {
 }
 
 export function SettingsPage() {
+  const { data: auth } = useQuery({ queryKey: keys.auth, queryFn: api.authStatus, retry: false })
   const { data } = useQuery({ queryKey: keys.settings, queryFn: api.settings })
   const [light, setLight] = useState(getTheme() === 'light')
   const toggle = () => {
@@ -136,8 +137,9 @@ export function SettingsPage() {
             <Icon name="chevron" />
           </Link>
         )}
-        <button className="morerow" type="button" onClick={() => api.logout().then(() => window.location.assign('/login'))}>
+        <button className="morerow" type="button" onClick={() => api.logout().then(() => window.location.assign('/welcome'))}>
           <span>Sign out</span>
+          {auth?.username && <span className="who">{auth.username}</span>}
         </button>
       </section>
     </div>

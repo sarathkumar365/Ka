@@ -1,12 +1,14 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, keys } from '../../lib/api'
 import { AuthFrame } from './AuthFrame'
-import { type Rules, setupProblem } from './rules'
+import { setupProblem } from './rules'
 
-/** Step 1 of onboarding when Ka has no account yet: create the one account. */
-export function SetupStep({ rules }: { rules: Rules }) {
+/** Step 1 of onboarding: create an account, then the onboarding page takes over. */
+export function SignupPage() {
+  const { data: auth } = useQuery({ queryKey: keys.auth, queryFn: api.authStatus, retry: false })
+  const rules = auth ?? { min_password: 10, username_rule: '^[a-z][a-z0-9_-]{2,31}$' }
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [again, setAgain] = useState('')
@@ -26,8 +28,8 @@ export function SetupStep({ rules }: { rules: Rules }) {
     if (problem) return
     setBusy(true)
     try {
-      await api.setup(username.trim(), password)
-      await qc.invalidateQueries()
+      await api.signup(username.trim(), password)
+      qc.clear() // nothing cached from before this account may show
       nav('/onboarding', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the account')
@@ -45,6 +47,7 @@ export function SetupStep({ rules }: { rules: Rules }) {
       busy={busy}
       submit="Create account"
       onSubmit={submit}
+      switchTo={{ prompt: 'Already have an account?', label: 'Sign in', to: '/login' }}
     >
       <label className="field">
         <span>Username</span>

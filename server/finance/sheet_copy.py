@@ -2,20 +2,18 @@
 
 import json
 import logging
-import threading
 from datetime import datetime
 
 from server.config import Config
 from server.flags import is_on
 from server.integrations.google.sheets import SheetsClient
+from server.locks import user_lock
 from server.store.db import Db
 
 from .models import StatementRecord, Transaction
 from .store import FinanceStore
 
 STATUS = "sheet_status"
-# Copies replace whole tabs: two at once could let an older store snapshot win.
-_PUSH_LOCK = threading.Lock()
 log = logging.getLogger(__name__)
 
 
@@ -48,12 +46,13 @@ def push_from_config(cfg: Config) -> bool:
 
     if not is_on(cfg, "google") or cfg.google is None:
         return False
-    with _PUSH_LOCK:  # the store is read inside the lock, so the newest copy always wins
+    # Copies replace whole tabs: the store is read inside the lock, so the newest copy wins.
+    with user_lock("sheet_push", cfg.user_id):
         return _push_locked(cfg)
 
 
 def _push_locked(cfg: Config) -> bool:
-    from server.integrations.google.oauth import GoogleAuthError, auth_for
+    from server.integrations.google.oauth import GoogleAuthError, auth_for, require_sheet
     from server.integrations.google.sheets import ApiSheets
 
     from .store import CsvFinanceStore
@@ -61,12 +60,13 @@ def _push_locked(cfg: Config) -> bool:
     db = Db(cfg.db_path, cfg.user_id)
     try:
         try:
+            sheet_id = require_sheet(cfg)
             sheets = ApiSheets(auth_for(cfg).credentials())
         except GoogleAuthError as e:
             db.set_state(STATUS, json.dumps({"at": datetime.now().isoformat(), "error": str(e)}))
             return False
         return push_sheet(
-            sheets, cfg.google.sheet_id, CsvFinanceStore(cfg.finance_dir, cfg.user_id), db, datetime.now()
+            sheets, sheet_id, CsvFinanceStore(cfg.finance_dir, cfg.user_id), db, datetime.now()
         )
     finally:
         db.conn.close()

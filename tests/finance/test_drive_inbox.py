@@ -27,7 +27,7 @@ def setup(ctx, tmp_path):
             )
         }
     )
-    return cfg, Db(tmp_path / "k.db"), pdf.read_bytes()
+    return cfg, Db(tmp_path / "k.db", "avery"), pdf.read_bytes()
 
 
 def statements(db):

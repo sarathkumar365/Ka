@@ -1,10 +1,10 @@
 # Flow: nightly extraction
 
-**Summary.** `ka extract` reads one day's saved conversations, asks the model what lasting facts the owner revealed, and queues them as pending. Nothing reaches `memory.yaml` until the owner approves. With the `nightly_extraction` flag on, `ka serve` runs it every night at 03:00 and catches up missed days when it starts; `ka extract` still runs one day by hand.
+**Summary.** `ka extract` reads one day's saved conversations, asks the model what lasting facts the person revealed, and queues them as pending. Nothing reaches memory until that person approves. With the `nightly_extraction` flag on, `ka serve` runs it every hour for every account, catching each one up to its own local yesterday (never past the server's yesterday, because messages are stamped in server time); `ka --user NAME extract` still runs one day by hand.
 
 ```mermaid
 flowchart LR
-    S[scheduler: 03:00 cron + catch-up at start] --> C[catch_up_extraction<br/>days after app_state.last_extraction_day]
+    S[scheduler: hourly per account + run at start] --> C[catch_up_extraction<br/>days after app_state.last_extraction_day]
     C --> D
     D[Db.conversations_on day] --> T[transcript per chat, finance output dropped]
     T --> M[adapter.complete, no tools]
@@ -17,7 +17,7 @@ flowchart LR
 
 Chat on 2031-04-05: "I moved to Lisbon". `extract_memories` builds the transcript (`_transcript`), lists active memories with ids in the instruction, and calls the model once per conversation so each pending item keeps its `source` conversation id. The reply is parsed by slicing from the first `[` to the last `]` (models wrap JSON in prose or fences). Each item goes through `pending.queue_memory`; duplicates of active memory or of an already queued item are skipped; `replaces` must name an active memory.
 
-Scheduling: `server/scheduler.py` registers two APScheduler jobs from the lifespan in `create_app` (only when `ka serve` passes `start_scheduler=True`): a cron at 03:00 local time (no misfire limit, so a run missed while the laptop slept happens on wake) and a one-time run at start. One lock stops the two from extracting the same days at once. Both call `catch_up_extraction`, which runs each day after `app_state.last_extraction_day` up to yesterday, at most 7, and records each finished day, so a day never runs twice. With no record yet it runs yesterday only.
+Scheduling: `create_app` (only when `ka serve` passes `start_scheduler=True`) registers an hourly APScheduler job and a one-time run at start, both wrapped in `for_each_account` (`server/jobs.py`): each account runs in its own `user_config`, under its own lock, and one account failing is logged without stopping the others. `nightly_job` calls `catch_up_extraction` with the account's local today (`users.local_today`, from `profile.timezone`), so it runs each day after that account's `last_extraction_day` up to its local yesterday, at most 7, and records each finished day; a day never runs twice. With no record yet it runs yesterday only.
 
 ## Why this way
 

@@ -27,7 +27,7 @@ def reply(items):
 
 
 def test_extract_queues_new_fact_and_skips_duplicates():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cid = conversation(db)
     items = [
         {"type": "fact", "text": "Lives in Lisbon", "replaces": None},
@@ -40,7 +40,7 @@ def test_extract_queues_new_fact_and_skips_duplicates():
 
 
 def test_extract_bad_json_queues_nothing():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     conversation(db)
     adapter = FakeAdapter([Reply(text="sorry, no json")])
     assert extract_memories(DAY, db, load_data(FIXTURE), adapter, NOW) == 0
@@ -49,7 +49,7 @@ def test_extract_bad_json_queues_nothing():
 
 def test_extract_never_sends_finance_tool_output():
     for tool in ("finance_search_transactions", "finance_import_statement"):
-        db = Db(":memory:")
+        db = Db(":memory:", "avery")
         conversation(db, tool, "SECRET-ROW Corner Cafe -4.50")
         adapter = FakeAdapter([reply([])])
         extract_memories(DAY, db, load_data(FIXTURE), adapter, NOW)
@@ -58,7 +58,7 @@ def test_extract_never_sends_finance_tool_output():
 
 
 def test_extract_contradiction_queues_with_replaces():
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     conversation(db)
     items = [{"type": "preference", "text": "Prefers hybrid roles", "replaces": "M-0001"}]
     extract_memories(DAY, db, load_data(FIXTURE), FakeAdapter([reply(items)]), NOW)
@@ -74,7 +74,7 @@ def test_retry_skips_conversations_already_extracted(ctx):
     from server.memory.extract import extract_memories
     from server.store.db import Db
 
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     at = datetime(2031, 4, 9, 10, 0)
     a, b = db.new_conversation(at), db.new_conversation(at)
     for c in (a, b):
@@ -109,7 +109,7 @@ def test_private_conversation_routing_and_number_guard(ctx):
     from server.memory.extract import extract_memories
     from server.store.db import Db
 
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     at = datetime(2031, 4, 9, 10, 0)
     cid = db.new_conversation(at)
     db.add_message(cid, {"role": "user", "content": "what did I spend"}, at)

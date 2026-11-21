@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { STEPS } from './rules'
 
 export function Progress({ current }: { current: number }) {
@@ -28,13 +29,17 @@ export function AuthFrame(props: {
   busy: boolean
   submit: string
   onSubmit: (e: FormEvent) => void
+  /** The way to the other screen: sign-up links to sign-in and back. */
+  switchTo: { prompt: string; label: string; to: string }
   children: ReactNode
 }) {
   return (
     <div className="app">
       <header className="bar">
         <div className="row">
-          <span className="textbtn wordmark">Ka</span>
+          <Link className="textbtn wordmark" to="/welcome" aria-label="Ka home">
+            Ka
+          </Link>
         </div>
       </header>
       <main className="screen">
@@ -53,6 +58,9 @@ export function AuthFrame(props: {
           <button className="primary" type="submit" disabled={props.busy} aria-busy={props.busy}>
             {props.busy ? 'One moment…' : props.submit}
           </button>
+          <p className="authswitch">
+            {props.switchTo.prompt} <Link to={props.switchTo.to}>{props.switchTo.label}</Link>
+          </p>
         </form>
       </main>
     </div>

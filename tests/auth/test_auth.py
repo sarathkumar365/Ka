@@ -48,14 +48,15 @@ def test_token_is_never_stored_raw_and_revoke_ends_it(sysdb):
     assert resolve(sysdb, tok, T0) is None
 
 
-def test_lockout_after_five_failures(sysdb):
-    create_user(sysdb, "avery", PW, T0)
+def test_failure_limiter_blocks_a_key_until_it_waits():
+    lim = LoginLimiter(max_attempts=5, window=timedelta(minutes=15))
     for _ in range(5):
-        with pytest.raises(AuthError):
-            authenticate(sysdb, "avery", "bad", T0)
-    with pytest.raises(AuthError, match="locked"):
-        authenticate(sysdb, "avery", PW, T0)
-    assert authenticate(sysdb, "avery", PW, T0 + timedelta(minutes=16)) == "avery"
+        lim.fail("ip|avery", T0)
+    assert lim.blocked("ip|avery", T0) and not lim.blocked("other|avery", T0)
+    assert not lim.blocked("ip|avery", T0 + timedelta(minutes=16))
+    lim.fail("ip|blake", T0)
+    lim.clear("ip|blake")
+    assert not lim.blocked("ip|blake", T0)
 
 
 def test_unknown_user_gets_the_same_message(sysdb):
@@ -63,14 +64,16 @@ def test_unknown_user_gets_the_same_message(sysdb):
         authenticate(sysdb, "nobody", PW, T0)
 
 
-def test_second_account_and_bad_input_are_refused(sysdb):
+def test_many_accounts_with_opaque_ids_and_unique_names(sysdb):
     with pytest.raises(AuthError):
         create_user(sysdb, "A", PW, T0)
     with pytest.raises(AuthError):
         create_user(sysdb, "avery", "short", T0)
-    create_user(sysdb, "avery", PW, T0)
-    with pytest.raises(AuthError):
-        create_user(sysdb, "blake", "correct horse 2", T0)
+    a = create_user(sysdb, "avery", PW, T0)
+    b = create_user(sysdb, "blake", "correct horse 2", T0)
+    assert a.startswith("u_") and len(a) == 14 and a != b and "avery" not in a
+    with pytest.raises(AuthError, match="that username is taken"):
+        create_user(sysdb, "avery", PW, T0)
 
 
 def test_login_limiter_window():

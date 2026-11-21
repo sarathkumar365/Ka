@@ -107,7 +107,27 @@ def _m2_loops(conn: sqlite3.Connection) -> None:
     )
 
 
-STEPS: list[Callable[[sqlite3.Connection], None]] = [_m1_users, _m2_loops]
+def _m3_fts_user(conn: sqlite3.Connection) -> None:
+    """Search rows carry their account, so search never depends on ids being unique."""
+    conn.executescript(
+        """
+        drop table if exists message_fts;
+        create virtual table message_fts using fts5(
+            text, conversation_id unindexed, message_id unindexed, role unindexed, at unindexed,
+            user_id unindexed
+        );
+        insert into message_fts
+            select json_extract(m.body, '$.content'), m.conversation_id, m.id, m.role, m.at,
+                   c.user_id
+            from messages m join conversations c on c.id = m.conversation_id
+            where m.role in ('user', 'assistant')
+              and json_type(m.body, '$.content') = 'text'
+              and json_extract(m.body, '$.content') != '';
+        """
+    )
+
+
+STEPS: list[Callable[[sqlite3.Connection], None]] = [_m1_users, _m2_loops, _m3_fts_user]
 
 
 def migrate(conn: sqlite3.Connection) -> int:
@@ -119,10 +139,3 @@ def migrate(conn: sqlite3.Connection) -> int:
                 conn.execute(f"pragma user_version = {n}")
             version = n
     return version
-
-
-def backfill_user(conn: sqlite3.Connection, user_id: str) -> None:
-    """Rows written before accounts existed belong to the first account."""
-    with conn:
-        for table in (*USER_TABLES, "app_state", "conversation_toolkits"):
-            conn.execute(f"update {table} set user_id=? where user_id=''", (user_id,))

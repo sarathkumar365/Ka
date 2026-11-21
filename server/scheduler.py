@@ -72,7 +72,7 @@ def catch_up_extraction(
 def nightly_job(
     cfg: Config,
     adapter_factory: Callable[[], Adapter],
-    today: Callable[[], date] = date.today,
+    today: Callable[[], date] | None = None,
     private_factory: Callable[[], Adapter] | None = None,
 ) -> ScheduledJob:
     busy = threading.Lock()  # the start-up catch-up and the 03:00 run share it
@@ -83,8 +83,13 @@ def nightly_job(
         db = None
         try:
             db = Db(cfg.db_path, cfg.user_id)
+            from server import users
+
+            # Messages are stamped in server time, so a day is only over once it is over both
+            # for the account and for the server.
+            day = today() if today else min(users.local_today(cfg), date.today())
             days = catch_up_extraction(
-                cfg, db, adapter_factory, today(), private_factory=private_factory
+                cfg, db, adapter_factory, day, private_factory=private_factory
             )
             if days:
                 db.add_activity("extraction", f"extracted {len(days)} day(s)", datetime.now())

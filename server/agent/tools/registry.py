@@ -29,9 +29,16 @@ class PendingWrite:
 class ToolContext:
     config: Config
     store: FinanceStore
-    today: Callable[[], date] = date.today
+    today: Callable[[], date] | None = None  # default: today in the account's time zone
     db: Db | None = None
     conversation_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.today is None:
+            from server.users import local_today
+
+            config = self.config
+            self.today = lambda: local_today(config)
 
     def mark_private(self) -> None:
         """The result holds finance data: move this conversation to the private model."""

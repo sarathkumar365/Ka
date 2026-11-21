@@ -10,7 +10,7 @@ from server.users import user_config
 from .sessions import resolve
 
 COOKIE = "ka_session"
-OPEN = {"/api/auth/status", "/api/auth/login", "/api/auth/setup", "/api/auth/logout"}
+OPEN = {"/api/auth/status", "/api/auth/login", "/api/auth/signup", "/api/auth/logout"}
 
 
 def now() -> datetime:

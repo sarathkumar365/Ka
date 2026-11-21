@@ -39,3 +39,18 @@ def test_models_parse_and_unknown_provider_is_rejected(tmp_path):
     f.write_text("data_repo: /x\nmodels:\n  default: {provider: bogus, model: m}\n")
     with pytest.raises(ConfigError):
         load_config(f)
+
+
+def test_per_account_values_never_come_from_config(tmp_path):
+    import pytest
+
+    from server.config import ConfigError, load_config
+
+    path = tmp_path / "config.yaml"
+    path.write_text(f"data_repo: {tmp_path}\nuser_id: avery\n")
+    with pytest.raises(ConfigError, match="not allowed in config.yaml: user_id"):
+        load_config(path)
+    client = tmp_path / "client.json"
+    client.write_text("{}")
+    path.write_text(f"data_repo: {tmp_path}\ngoogle:\n  client_file: {client}\n  sheet_id: S\n")
+    assert load_config(path).google.sheet_id is None

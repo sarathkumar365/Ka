@@ -20,7 +20,7 @@ def test_import_queues_unverified_items_with_replaces(ctx):
         {"type": "preference", "text": "Prefers hybrid roles", "replaces": "M-0001"},
         {"type": "fact", "text": "Speaks French", "replaces": None},
     ]
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     n = import_memory(
         "pasted text", "claude", db, data, FakeAdapter([Reply(text=json.dumps(items))]), NOW
     )
@@ -37,4 +37,4 @@ def test_import_failure_is_readable(ctx):
             raise AdapterError("provider reports no credits remaining")
 
     with pytest.raises(IntakeError, match="no credits"):
-        import_memory("x", "claude", Db(":memory:"), load_data(ctx.config.data_repo), Down(), NOW)
+        import_memory("x", "claude", Db(":memory:", "avery"), load_data(ctx.config.data_repo), Down(), NOW)

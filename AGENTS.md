@@ -7,7 +7,7 @@ Never load any `*.interview.md` file (keeps context lean).
 - `uv sync` install
 - `uv run pytest` tests
 - `uv run ruff check .` lint
-- `uv run ka check|import|statements` CLI
+- `uv run ka [--user USERNAME] check|import|statements` CLI (`--user` needed once there are several accounts); `uv run ka users list|reset-password USERNAME`
 - `uv run ka google login|status|probe`, `uv run ka sheet push` (flag `google`)
 - `uv run ka chat [--local] [--resume ID]` terminal chat; `uv run ka pending [approve|reject ID]`; `uv run ka extract [--date YYYY-MM-DD] [--local]` (flag `nightly_extraction`)
 - `uv run ka suggest` queue category suggestions for uncategorised rows (flag `category_suggestions`)

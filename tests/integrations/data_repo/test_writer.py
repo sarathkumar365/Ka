@@ -188,3 +188,39 @@ def test_toolkit_memory_is_validated(repo):
 
     with pytest.raises(DataRepoError, match="M-0001"):
         load_data(repo)
+
+
+def test_two_accounts_commit_at_once(tmp_path):
+    import shutil
+    import threading
+
+    root = tmp_path / "data"
+    for user in ("u_a", "u_b"):
+        shutil.copytree(FIXTURE, root / "users" / user)
+    (root / ".gitignore").write_text("local/\n.ka.lock\n")
+    for args in (("init", "-q", "-b", "main"), ("config", "user.email", "t@example.test"),
+                 ("config", "user.name", "T"), ("add", "-A"), ("commit", "-q", "-m", "init")):
+        git(root, *args)
+    plans = {
+        u: plan_change(root / "users" / u, Patch(target="highlight", op="add", parent=JOB,
+                                                 fields={"text": f"Shipped {u}", "domains": ["D-01"]}))
+        for u in ("u_a", "u_b")
+    }
+    errors: list[Exception] = []
+
+    def run(user):
+        try:
+            for _ in range(3):  # several rounds make an unlocked index.lock collision likely
+                apply_change(root / "users" / user, plans[user])
+                plans[user] = plan_change(root / "users" / user, Patch(
+                    target="highlight", op="add", parent=JOB, fields={"text": "again", "domains": ["D-01"]}))
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=run, args=(u,)) for u in ("u_a", "u_b")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert git(root, "rev-list", "--count", "HEAD") == "7"

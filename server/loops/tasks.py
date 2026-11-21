@@ -77,7 +77,7 @@ class TaskStore:
         return ScheduledTask(**d)
 
     def add(self, task: ScheduledTask, now: datetime, task_id: str | None = None) -> str:
-        tid = task_id or f"T-{now:%Y%m%d}-{secrets.token_hex(2)}"
+        tid = task_id or f"T-{now:%Y%m%d}-{secrets.token_hex(8)}"
         with self.conn:
             self.conn.execute(
                 f"insert into scheduled_tasks ({COLS}) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

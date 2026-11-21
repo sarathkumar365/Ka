@@ -9,6 +9,7 @@ from server.finance.importer import ImportFailed, commit_import, prepare_import
 from server.finance.parser import StatementFormatError
 from server.finance.store import CsvFinanceStore
 from server.integrations.data_repo.loader import load_data
+from server.integrations.google.oauth import DRIVE_MISSING
 from server.store.db import Db
 
 from .runner import RunContext
@@ -44,7 +45,7 @@ def statement_import_body(
     """
     out = {"new": 0, "imported": 0, "queued": 0, "skipped": []}
     if cfg.google is None or not cfg.google.drive_folder_id:
-        out["skipped"].append("no Drive folder set")
+        out["skipped"].append(DRIVE_MISSING)
         return out
     cfg.statements_dir.mkdir(parents=True, exist_ok=True)
     store = CsvFinanceStore(cfg.finance_dir, cfg.user_id)

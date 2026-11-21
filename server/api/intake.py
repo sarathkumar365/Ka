@@ -13,6 +13,7 @@ from server.config import Config
 from server.flags import is_on
 from server.intake.readers import SUPPORTED
 from server.intake.runner import Basics, run_onboarding_job
+from server.locks import user_lock
 from server.store.db import Db
 
 from .deps import get_cfg, get_db
@@ -50,7 +51,7 @@ def _adapter(request: Request):
 
 def _start(request: Request, db: Db, kind: str) -> str:
     """Create the job row unless one is already running; the check and insert are atomic."""
-    with request.app.state.lock:
+    with user_lock("intake", db.user_id):
         if db.running_intake_job():
             raise HTTPException(409, "another intake job is running")
         return db.new_intake_job(kind, datetime.now())  # type: ignore[arg-type]

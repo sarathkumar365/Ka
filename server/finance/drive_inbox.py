@@ -2,7 +2,6 @@
 
 import json
 import re
-import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +9,8 @@ from pathlib import Path
 from server.config import Config
 from server.integrations.data_repo.loader import load_data
 from server.integrations.google.drive import DriveClient
+from server.integrations.google.oauth import require_drive
+from server.locks import user_lock
 from server.memory.pending import PendingError
 from server.store.db import Db
 
@@ -20,8 +21,6 @@ from .store import FinanceStore
 KIND = "statement"
 SEEN = "drive_seen"
 LAST_SYNC = "drive_sync"
-# One sync at a time per process: the scheduler and the Sync now button can overlap.
-_SYNC_LOCK = threading.Lock()
 
 
 @dataclass
@@ -58,12 +57,12 @@ def sync_drive(drive: DriveClient, cfg: Config, db: Db, now: datetime) -> SyncRe
     from .store import CsvFinanceStore
 
     result = SyncResult()
-    with _SYNC_LOCK:
+    with user_lock("drive_sync", cfg.user_id):  # the job and Sync now can overlap
         seen = set(json.loads(db.get_state(SEEN) or "[]"))
         cfg.statements_dir.mkdir(parents=True, exist_ok=True)
         store = CsvFinanceStore(cfg.finance_dir, cfg.user_id)
         data = load_data(cfg.data_repo)
-        for f in drive.list_pdfs(cfg.google.drive_folder_id):
+        for f in drive.list_pdfs(require_drive(cfg)):
             if f.id in seen:
                 continue
             dest = _dest(cfg.statements_dir, f.name, f.id)
@@ -141,11 +140,14 @@ def run_sync(cfg: Config, now: datetime) -> SyncResult:
 def drive_job(cfg: Config):
     import logging
 
+    from server.integrations.google.oauth import GoogleSetupMissing
     from server.scheduler import ScheduledJob
 
     def run() -> None:
         try:
             run_sync(cfg, datetime.now())
+        except GoogleSetupMissing:  # expected until the account sets its folder; Settings shows it
+            logging.getLogger(__name__).info("drive sync skipped for %s: no folder set", cfg.user_id)
         except Exception:  # recorded in drive_sync; a background job must never crash the server
             logging.getLogger(__name__).exception("drive sync failed")
 

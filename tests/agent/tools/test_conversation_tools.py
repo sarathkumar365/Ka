@@ -7,7 +7,7 @@ NOW = datetime(2031, 4, 5, tzinfo=UTC)
 
 
 def test_search_conversations_tool_returns_hits_as_json(ctx):
-    ctx.db = Db(":memory:")
+    ctx.db = Db(":memory:", "avery")
     cid = ctx.db.new_conversation(NOW)
     ctx.db.add_message(cid, {"role": "user", "content": "plan the Lisbon trip"}, NOW)
     out = run_tool("search_conversations", {"query": "lisbon"}, ctx)

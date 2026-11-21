@@ -41,7 +41,7 @@ def test_types_drop_unknown_tag():
 
 def test_queue_dedupes_pending(ctx):
     data = load_data(ctx.config.data_repo)
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     for _ in range(2):
         cats = suggest_categories(
             ["FRESHMART #12"],
@@ -59,7 +59,7 @@ def test_queue_dedupes_pending(ctx):
 def test_approve_categories_card_writes_rule(ctx):
     repo = ctx.config.data_repo
     data = load_data(repo)
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cats = suggest_categories(
         ["FRESHMART #12"],
         data,
@@ -77,7 +77,7 @@ def test_approve_categories_card_writes_rule(ctx):
 
 def test_approve_types_card_writes_type_rule(ctx):
     repo = ctx.config.data_repo
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     types = suggest_types(
         ["Bill payment"], reply([{"type_text": "Bill payment", "tag": "debt_payment"}])
     )
@@ -105,7 +105,7 @@ def test_items_matched_by_line_number(ctx):
 
 def test_same_merchant_other_match_not_queued_twice(ctx):
     data = load_data(ctx.config.data_repo)
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     for match in ("Freshmart", "Freshmart #12"):
         cats = suggest_categories(
             ["FRESHMART #12"],
@@ -120,7 +120,7 @@ def test_same_merchant_other_match_not_queued_twice(ctx):
 
 def test_same_match_other_store_not_queued_twice(ctx):
     data = load_data(ctx.config.data_repo)
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     items = [
         {
             "n": 1,
@@ -144,7 +144,7 @@ def test_pending_merchants_not_asked_again(ctx):
     from server.finance.suggest import not_pending
 
     data = load_data(ctx.config.data_repo)
-    db = Db(":memory:")
+    db = Db(":memory:", "avery")
     cats = suggest_categories(
         ["FRESHMART #12"],
         data,
