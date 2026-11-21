@@ -182,7 +182,7 @@ def test_chain_down_never_uses_default(ctx, tmp_path):
     db = Db(tmp_path / "k.db", "avery")
     cid = db.new_conversation(NOW())
     default = FakeAdapter([Reply(tool_calls=[call("finance_coverage")])])
-    with pytest.raises(AdapterError, match="private model unavailable"):
+    with pytest.raises(AdapterError, match="only uses the private model"):
         _private_turn(ctx, db, cid, default, ChainAdapter([Down()]))
     assert len(default.calls) == 1
 

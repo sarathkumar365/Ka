@@ -131,7 +131,7 @@ def test_chain_falls_through_then_fails():
 
     ok = OpenAICompatAdapter("m", None, "k", client=FakeClient([good()]))
     assert ChainAdapter([Down(), ok]).complete([], []).text == "hi"
-    with pytest.raises(AdapterError, match="private model unavailable"):
+    with pytest.raises(AdapterError, match="only uses the private model"):
         ChainAdapter([Down(), Down()]).complete([], [])
 
 

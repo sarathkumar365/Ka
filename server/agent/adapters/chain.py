@@ -20,7 +20,18 @@ class ChainAdapter:
                 return adapter.complete(messages, tools)
             except AdapterError as e:
                 reason = str(e)
-        raise AdapterError(f"private model unavailable: {reason}")
+        raise PrivateUnavailable(reason)
+
+
+class PrivateUnavailable(AdapterError):
+    """The finance chain is down. The chat must not fall back to the default model, so say why
+    and how to go on."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            "This chat holds finance data, so it only uses the private model, which is not "
+            f"available right now ({reason}). Start a new chat for other questions."
+        )
 
 
 def build_private_adapter(cfg: Config, env: Mapping[str, str] = os.environ) -> ChainAdapter:

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+from server.flags import is_on
 from server.store.db import Db
 from server.toolkits.base import available, visible_tools
 from server.tracing import tool_span, turn_span
@@ -132,7 +133,9 @@ def _turn(
         adapter = private_adapter
     system = {
         "role": "system",
-        "content": build_system_prompt(ctx.data, ctx.today(), available(ctx.config)),
+        "content": build_system_prompt(
+            ctx.data, ctx.today(), available(ctx.config), web=is_on(ctx.config, "web_search")
+        ),
     }
     start = len(db.messages(conv_id))  # this turn's user message lands at this index
     db.add_message(conv_id, {"role": "user", "content": user_text}, now())

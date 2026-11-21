@@ -169,3 +169,20 @@ def test_closing_the_stream_mid_approval_frees_the_conversation_quickly(make_cli
         return not state.running
 
     assert asyncio.run(scenario())
+
+
+
+def test_private_model_down_says_so_plainly(make_client, db):
+    from server.agent.adapters.chain import ChainAdapter
+
+    class Expired:
+        def complete(self, messages, tools):
+            raise AdapterError("model call failed: AuthenticationError")
+
+    client = make_client([Reply(text="unused")], private_factory=lambda: ChainAdapter([Expired()]))
+    ev = frames(client, {"text": "hi"})
+    convs = db.list_conversations()
+    db.mark_private(convs[0].id)
+    ev = frames(client, {"conversation_id": convs[0].id, "text": "hi again"})
+    msg = ev[1][1]["message"]
+    assert "private model" in msg and "Start a new chat" in msg and "AuthenticationError" in msg

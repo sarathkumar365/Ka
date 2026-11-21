@@ -58,7 +58,18 @@ def test_loaded_toolkit_persists_for_the_chat(ctx):
     assert "finance_coverage" in next(m for m in msgs if m["role"] == "tool")["content"]  # instructions came back
     _, _, adapter = ask_in(ctx, [Reply(text="again")], conv=cid)
     assert "finance_summary" in names(adapter)
-    assert ctx.db.is_private(cid)  # finance manifest is private
+    assert not ctx.db.is_private(cid)  # nothing private came back: finance memory is empty
+
+
+def test_loading_finance_with_memory_makes_the_chat_private(ctx):
+    ids = ctx.config.data_repo / "ids.yaml"
+    ids.write_text(ids.read_text().replace("M: 2", "M: 3"))
+    (ctx.config.data_repo / "memory" / "finance.yaml").write_text(
+        "entries:\n  - {id: M-0002, type: fact, text: Salary lands on the 15th, created: '2031-04-01',"
+        " updated: '2031-04-01', status: active}\n"
+    )
+    cid, _, _ = ask_in(ctx, [Reply(tool_calls=[call("load_toolkit", '{"name": "finance"}')]), Reply(text="ok")])
+    assert ctx.db.is_private(cid)  # the finance memory just went into the history
 
 
 def test_flag_off_hides_loaded_toolkit(ctx, monkeypatch):

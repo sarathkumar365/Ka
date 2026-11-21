@@ -10,6 +10,11 @@ from typing import Protocol
 from server.integrations.data_repo.loader import KaData
 
 RULES = (Path(__file__).parent / "prompt.md").read_text()
+WEB_OFF = (
+    "Web search is off in this setup: you cannot search or read the web. For news, prices or "
+    "anything current, say web search is turned off (flag web_search in config.yaml); never offer to "
+    "look it up."
+)
 
 
 class Listed(Protocol):
@@ -17,7 +22,9 @@ class Listed(Protocol):
     description: str
 
 
-def build_system_prompt(data: KaData, today: date, toolkits: Sequence[Listed] = ()) -> str:
+def build_system_prompt(
+    data: KaData, today: date, toolkits: Sequence[Listed] = (), web: bool = True
+) -> str:
     p = data.profile
     active = [m for m in data.memory.entries if m.status == "active"]
     profile = [f"Name: {p.name}"]
@@ -43,7 +50,10 @@ def build_system_prompt(data: KaData, today: date, toolkits: Sequence[Listed] = 
             RULES.strip(),
             f"Today is {today:%A} {today.isoformat()}.",
             "About the owner:\n" + "\n".join(profile),
-            "Toolkits you can load with load_toolkit:\n" + "\n".join(index),
+            "Toolkits you can load with load_toolkit (load one only when the question is about its "
+            "subject; never load finance for news, people or general questions):\n"
+            + "\n".join(index),
+            *([] if web else [WEB_OFF]),
             "Guardrails (always obey):\n" + "\n".join(guardrails),
             "What you remember about the owner:\n" + "\n".join(memory),
         ]
