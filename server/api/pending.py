@@ -3,13 +3,21 @@ from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from server.agent.tools import ToolContext
 from server.config import Config
 from server.finance.drive_inbox import approve_statement, refresh_imported, reject_statement
 from server.finance.sheet_copy import push_from_config
 from server.finance.store import CsvFinanceStore
+from server.flags import is_on
 from server.intake.approve import approve_bundle, reject_bundle
 from server.integrations.data_repo.loader import load_data
-from server.memory.pending import PendingError, approve_pending, reject_pending
+from server.memory.pending import (
+    PendingError,
+    approve_pending,
+    approve_tool_write,
+    dismiss,
+    reject_pending,
+)  # fmt: skip
 from server.store.db import Db
 
 from .deps import get_cfg, get_db
@@ -23,7 +31,7 @@ class ApproveBody(BaseModel):
 
 def _item(db: Db, item_id: int):
     item = db.get_pending(item_id)
-    if item is None or item.kind not in ("memory", "bundle", "statement"):
+    if item is None or item.kind not in ("memory", "bundle", "statement", "tool_write", "alert"):
         raise HTTPException(409, f"no pending item {item_id}")
     return item
 
@@ -75,7 +83,13 @@ def list_pending(cfg: Config = Depends(get_cfg), db: Db = Depends(get_db)):
         if i.kind == "statement"
     ]
     if statements:
-        rows += refresh_imported(statements, CsvFinanceStore(cfg.finance_dir))
+        rows += refresh_imported(statements, CsvFinanceStore(cfg.finance_dir, cfg.user_id))
+    rows += [
+        {"id": i.id, "kind": i.kind, **{k: v for k, v in i.payload.items() if k != "args"}}
+        | {"source": i.source, "created_at": i.created_at}
+        for i in items
+        if i.kind in ("tool_write", "alert")
+    ]
     return sorted(rows, key=lambda r: r["id"])
 
 
@@ -91,7 +105,9 @@ def approve(
     try:
         with request.app.state.pending_lock:  # check, commit and status update must not interleave
             if item.kind == "statement":
-                result = approve_statement(item_id, cfg, db, CsvFinanceStore(cfg.finance_dir))
+                result = approve_statement(
+                    item_id, cfg, db, CsvFinanceStore(cfg.finance_dir, cfg.user_id)
+                )
             elif item.kind == "bundle":
                 selected = body.selected if body else None
                 result = approve_bundle(
@@ -100,8 +116,16 @@ def approve(
                     cfg.data_repo,
                     db,
                     date.today(),
-                    CsvFinanceStore(cfg.finance_dir),
+                    CsvFinanceStore(cfg.finance_dir, cfg.user_id),
                 )
+            elif item.kind == "tool_write":
+                ctx = ToolContext(
+                    config=cfg, store=CsvFinanceStore(cfg.finance_dir, cfg.user_id), db=db
+                )
+                result = approve_tool_write(item_id, ctx)
+            elif item.kind == "alert":
+                dismiss(item_id, db, "alert")
+                result = "dismissed"
             else:
                 result = approve_pending(item_id, cfg.data_repo, db, date.today())
     except PendingError as e:
@@ -113,6 +137,8 @@ def approve(
         text = f"Saved {item.payload['title']}. You approved it."
         if item.payload.get("section") == "categories":
             _in_background(push_from_config, cfg)  # stored rows got categories
+    elif item.kind in ("tool_write", "alert"):
+        text = f"{item.payload.get('summary') or item.payload.get('title')}. You approved it."
     else:
         text = f"Saved a memory: {item.payload['text']}. You approved it."
     db.add_activity("pending", text, datetime.now())
@@ -128,12 +154,14 @@ def reject(item_id: int, request: Request, db: Db = Depends(get_db)):
                 reject_statement(item_id, db)
             elif item.kind == "bundle":
                 reject_bundle(item_id, db)
+            elif item.kind in ("tool_write", "alert"):
+                dismiss(item_id, db, item.kind)
             else:
                 reject_pending(item_id, db)
     except PendingError as e:
         raise HTTPException(409, str(e)) from e
-    label = {"bundle": "title", "statement": "file"}.get(item.kind, "text")
-    label = item.payload[label]
+    field = {"bundle": "title", "statement": "file", "tool_write": "summary", "alert": "title"}
+    label = item.payload[field.get(item.kind, "text")]
     db.add_activity("pending", f"Did not save: {label}. You rejected it.", datetime.now())
     return {}
 
@@ -147,7 +175,7 @@ def _in_background(fn, *args) -> None:
 def after_import(state, cfg: Config) -> None:
     """Copy to the Sheet and suggest categories in the background; approve does not wait."""
     _in_background(push_from_config, cfg)
-    if not cfg.flags.get("category_suggestions"):
+    if not is_on(cfg, "category_suggestions"):
         return
 
     from server.finance.suggest import (
@@ -160,9 +188,11 @@ def after_import(state, cfg: Config) -> None:
     factory = state.private_factory or state.adapter_factory  # merchant texts are finance data
 
     def work() -> None:
-        db = Db(cfg.db_path)
+        db = Db(cfg.db_path, cfg.user_id)
         try:
-            merchants = not_pending(db, uncategorised(CsvFinanceStore(cfg.finance_dir)))
+            merchants = not_pending(
+                db, uncategorised(CsvFinanceStore(cfg.finance_dir, cfg.user_id))
+            )
             if merchants:
                 cats = suggest_categories(merchants, load_data(cfg.data_repo), factory())
                 queue_suggestions(db, cats, [], "import", datetime.now())

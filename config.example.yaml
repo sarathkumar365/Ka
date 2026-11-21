@@ -6,9 +6,18 @@ flags:
   category_suggestions: false
   private_routing: false
   google: false
+  tracing: false
+  web_search: false
+  movies: false
+  loops: false
 ui_hosts: []  # extra Host names the UI accepts, e.g. a tailscale hostname
 models:
-  default: {provider: openai, model: "set-me"}  # key comes from OPENAI_API_KEY in .env
+  # Each task uses the cheapest model that passes its evals. Chat: Haiku on OpenRouter with zero
+  # data retention (check the exact slug at https://openrouter.ai/api/v1/models). cache: true marks
+  # the system prompt for prompt caching; fallbacks are tried in order when a model is down.
+  default: {provider: openrouter, model: "set-me", zdr: true, cache: true, fallbacks: []}
+  small: {provider: openrouter, model: "set-me", zdr: true}  # nightly extraction, sorting
+  grader: {provider: openrouter, model: "set-me"}  # eval judge (Opus)
 private_models:  # finance conversations, tried in order; an Ollama entry can go first later
   - {provider: openrouter, model: "set-me", zdr: true, only: [amazon-bedrock]}  # key from OPENROUTER_API_KEY
 google:  # Drive statement inbox and Sheet copy; IDs come from the folder and sheet URLs

@@ -18,6 +18,7 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
   const nav = useNavigate()
   const { id } = useParams()
   const { data = [] } = useQuery({ queryKey: keys.conversations, queryFn: api.conversations })
+  const { data: settings } = useQuery({ queryKey: keys.settings, queryFn: api.settings })
   return (
     <>
       <button className="scrim" data-open={open} aria-label="Close chat history" onClick={onClose} />
@@ -44,6 +45,11 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
             )),
           ])}
         </div>
+        {settings?.flags.loops && (
+          <NavLink to="/loops" className="item foot">
+            <span>Loops</span>
+          </NavLink>
+        )}
         <NavLink to="/activity" className="item foot">
           <span>Activity log</span>
         </NavLink>

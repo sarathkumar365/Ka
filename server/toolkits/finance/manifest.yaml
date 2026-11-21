@@ -1,0 +1,3 @@
+name: finance
+description: Bank statements and spending - totals, transaction search, statement import.
+private: true

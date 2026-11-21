@@ -48,15 +48,15 @@ def test_import_statement_approval_and_refusals(ctx):
         SpecRow(date(2031, 3, 26), "Payroll dep.", "Example Co Ltd.", Decimal("1250.00")),
     ]
     build_statement(folder / "s.pdf", StatementSpec(rows=rows))
-    pending = run_tool("import_statement", {"file_name": "s.pdf"}, ctx)
+    pending = run_tool("finance_import_statement", {"file_name": "s.pdf"}, ctx)
     assert "2 rows" in pending.summary and ctx.store.transactions() == []
     pending.apply()
     assert len(ctx.store.transactions()) == 2
     with pytest.raises(ToolError, match="already imported"):
-        run_tool("import_statement", {"file_name": "s.pdf"}, ctx)
+        run_tool("finance_import_statement", {"file_name": "s.pdf"}, ctx)
     for bad in ("../s.pdf", "notes.txt", "missing.pdf"):
         with pytest.raises(ToolError):
-            run_tool("import_statement", {"file_name": bad}, ctx)
+            run_tool("finance_import_statement", {"file_name": bad}, ctx)
     build_statement(folder / "bad.pdf", StatementSpec(rows=rows, closing_balance=Decimal("1.00")))
     with pytest.raises(ToolError, match="opening_closing"):
-        run_tool("import_statement", {"file_name": "bad.pdf"}, ctx)
+        run_tool("finance_import_statement", {"file_name": "bad.pdf"}, ctx)

@@ -4,10 +4,9 @@ from typing import Any
 
 from pydantic import Field
 
+from server.agent.tools.registry import ToolContext, ToolError, tool
 from server.integrations.data_repo.loader import KaData
 from server.integrations.data_repo.schemas.common import KaModel
-
-from .registry import ToolContext, ToolError, tool
 
 SNIPPET_CHARS = 160
 
@@ -25,7 +24,7 @@ class SearchArgs(KaModel):
     limit: int = Field(default=20, ge=1, le=100)
 
 
-@tool("get_profile", "Return the owner's profile.", NoArgs)
+@tool("get_profile", "Return the owner's profile.", NoArgs, activity="Read your profile")
 def get_profile(args: NoArgs, ctx: ToolContext):
     return ctx.data.profile
 
@@ -35,6 +34,7 @@ def get_profile(args: NoArgs, ctx: ToolContext):
     "Return work history: domains, jobs and their highlights (retired ones only on request). "
     "Each job has a `key` to use with propose_change.",
     JobsArgs,
+    activity="Read your jobs",
 )
 def get_jobs(args: JobsArgs, ctx: ToolContext):
     out = ctx.data.jobs.model_dump(mode="json")
@@ -82,14 +82,19 @@ def _records(data: KaData) -> list[tuple[str, str, str, str | None]]:
         key = f"{job.company}|{job.start}"
         out += [("jobs.yaml", h.id, _text(dump(h)), key) for h in job.highlights]
     out += [("guardrails.yaml", g.id, _text(dump(g)), None) for g in data.guardrails.rules]
-    out += [("memory.yaml", m.id, _text(dump(m)), None) for m in data.memory.entries]
+    out += [("memory/core.yaml", m.id, _text(dump(m)), None) for m in data.memory.entries]
     out += [("accounts.yaml", a.id, _text(dump(a)), None) for a in data.accounts.accounts]
     out += [("rules/merchants.yaml", r.id, _text(dump(r)), None) for r in data.merchant_rules.rules]
     out += [("other.yaml", r.id, _text(dump(r)), None) for r in data.other.records]
     return out
 
 
-@tool("search", "Keyword search across all personal data files.", SearchArgs)
+@tool(
+    "search",
+    "Keyword search across all personal data files.",
+    SearchArgs,
+    activity="Searched your data",
+)
 def search(args: SearchArgs, ctx: ToolContext):
     needle = args.query.casefold().strip()
     if not needle:

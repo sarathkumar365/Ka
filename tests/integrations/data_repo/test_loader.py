@@ -5,6 +5,7 @@ import pytest
 
 from server.cli import main
 from server.integrations.data_repo.loader import DataRepoError, load_data
+from tests.conftest import FIXTURE
 
 FIX = Path(__file__).parents[2] / "fixtures" / "data"
 
@@ -42,12 +43,14 @@ def test_cross_file_check_catches_unknown_domain(repo):
         load_data(repo)
 
 
-def test_cli_check(repo, tmp_path, monkeypatch, capsys):
+def test_cli_check(tmp_path, monkeypatch, capsys):
+    repo = tmp_path / "base" / "users" / "avery"
+    shutil.copytree(FIXTURE, repo)
     cfg = tmp_path / "c.yaml"
-    cfg.write_text(f"data_repo: {repo}\n")
+    cfg.write_text(f"data_repo: {tmp_path / 'base'}\n")
     monkeypatch.setenv("KA_CONFIG", str(cfg))
-    assert main(["check"]) == 0
+    assert main(["--user", "avery", "check"]) == 0
     assert "ok: 11 files" in capsys.readouterr().out
     (repo / "ids.yaml").write_text("next: {H: 1}\n")
-    assert main(["check"]) == 1
+    assert main(["--user", "avery", "check"]) == 1
     assert "ids.yaml" in capsys.readouterr().out

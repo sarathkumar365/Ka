@@ -57,7 +57,7 @@ def test_approve_contradiction_adds_new_and_retires_old_with_replaced_by(setup):
 def test_approve_with_dirty_memory_file_leaves_item_pending(setup):
     repo, db = setup
     pid = queue(db, repo, "Likes tea")["pending_id"]
-    (repo / "memory.yaml").write_text((repo / "memory.yaml").read_text() + "# hand edit\n")
+    (repo / "memory/core.yaml").write_text((repo / "memory/core.yaml").read_text() + "# hand edit\n")
     with pytest.raises(PendingError, match="uncommitted"):
         approve_pending(pid, repo, db, TODAY)
     assert [i.id for i in db.list_pending()] == [pid]
@@ -78,7 +78,7 @@ def test_approve_rechecks_duplicate_and_replaces_at_approval_time(setup):
     approve_pending(a, repo, db, TODAY)
     with pytest.raises(PendingError, match="no longer active"):
         approve_pending(b, repo, db, TODAY)
-    from server.agent.tools.write_tools import remember  # noqa: F401  (registers the tool)
+    import server.agent.tools  # noqa: F401  (registers the tools)
     from server.integrations.data_repo.writer import Patch, apply_change, plan_change
 
     fields = {
@@ -92,3 +92,13 @@ def test_approve_rechecks_duplicate_and_replaces_at_approval_time(setup):
     with pytest.raises(PendingError, match="already"):
         approve_pending(c, repo, db, TODAY)
     assert {i.id for i in db.list_pending()} == {b, c}
+
+
+def test_approved_toolkit_memory_lands_in_its_file(setup):
+    from server.integrations.data_repo.loader import load_memory
+
+    repo, db = setup
+    queue_memory(db, load_data(repo), "Likes slow sci-fi", "preference", None, "C-1", NOW, toolkit="movies")
+    approve_pending(db.list_pending()[0].id, repo, db, TODAY)
+    assert load_memory(repo, "movies").entries[-1].text == "Likes slow sci-fi"
+    assert "Likes slow sci-fi" not in [e.text for e in load_data(repo).memory.entries]

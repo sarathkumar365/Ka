@@ -40,6 +40,8 @@ def frame(name: str, data: dict) -> str:
 def _outcome(result: str) -> str:
     if result.startswith("user declined"):
         return " You declined it."
+    if result.startswith("blocked:"):
+        return " It was blocked after untrusted content."
     if result.startswith(("failed", "error")):
         return " It did not go through."
     return " You approved it."
@@ -48,8 +50,8 @@ def _outcome(result: str) -> str:
 @router.post("/chat")
 def chat(body: ChatBody, request: Request):
     state = request.app.state
-    cfg = state.cfg
-    probe = Db(cfg.db_path)
+    cfg = request.state.cfg  # the signed-in user's config
+    probe = Db(cfg.db_path, cfg.user_id)
     try:
         if body.conversation_id and not probe.conversation_exists(body.conversation_id):
             raise HTTPException(404, "no such conversation")
@@ -96,10 +98,10 @@ def chat(body: ChatBody, request: Request):
                 out.put((e.kind, e.data))
 
         try:
-            db = Db(cfg.db_path)
+            db = Db(cfg.db_path, cfg.user_id)
             adapter = state.adapter_factory()
             private = state.private_factory() if state.private_factory else None
-            ctx = ToolContext(config=cfg, store=CsvFinanceStore(cfg.finance_dir), db=db)
+            ctx = ToolContext(config=cfg, store=CsvFinanceStore(cfg.finance_dir, cfg.user_id), db=db)
             run_turn(
                 body.text,
                 conv_id=conv_id,

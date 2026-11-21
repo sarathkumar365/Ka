@@ -12,6 +12,10 @@ flowchart LR
     A -->|any error| R[restore old text, git reset]
 ```
 
+## Per-user layout
+
+Everything personal sits under `users/<user_id>/` in the data repo: the YAML files, `memory/core.yaml` plus one memory file per toolkit (`memory/finance.yaml`, `memory/movies.yaml`), `settings.yaml` (Drive folder and Sheet ids) and a git-ignored `local/` (finance CSVs, statements, Google token, intake uploads). The shared `local/ka.db` and `local/denylist.txt` stay at the repo root. `server/users.py` `user_config(cfg, user_id)` returns a Config whose `data_repo` is the user folder and whose `repo_root` is the shared repo, so loaders and writers work on one user's folder unchanged; git commands run inside the subfolder. `claim_legacy_data` runs once at account setup: it refuses a dirty repo, `git mv`s the old root files into the user folder (`memory.yaml` becomes `memory/core.yaml`), adds missing toolkit memory files, copies the Google ids from `config.yaml` into `settings.yaml`, commits once, then moves the untracked `local/` folders and stamps `user_id` on every finance row. A repo with nothing to move starts the user from `server/users_starter/`.
+
 ## Worked example
 
 `ka check` calls `load_data(root)` in `server/integrations/data_repo/loader.py`. `_read` loads each file in `FILES` with ruamel's safe loader, turns bare YAML dates back into strings (`_plain`, because the schemas expect partial dates like `2024-02`), and builds the Pydantic model. Every model extends `KaModel` (`schemas/common.py`) with `extra="forbid"`, so a typo in a field name fails instead of being silently dropped. `_cross_checks` then enforces what no single file can: a highlight's domains exist in `jobs.yaml`, a merchant rule's category is in `categories.yaml`, a memory's `replaced_by` points at a real entry, and each `ids.yaml` counter is above the highest id in use. Any failure is one `DataRepoError` naming file, field and reason.

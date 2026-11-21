@@ -62,6 +62,7 @@ class Transaction(KaModel):
     tag: str
     category: str = ""
     linked_id: str = ""
+    user_id: str = ""
 
 
 class StatementRecord(KaModel):
@@ -75,3 +76,4 @@ class StatementRecord(KaModel):
     closing_balance: Decimal
     file_name: str
     imported_at: datetime
+    user_id: str = ""

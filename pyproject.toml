@@ -5,11 +5,15 @@ description = "Ka: personal data layer and agent"
 requires-python = ">=3.13"
 dependencies = [
     "apscheduler>=3.10,<4",
+    "argon2-cffi>=25.1",
     "fastapi>=0.163.1",
     "google-api-python-client>=2.202.0",
     "google-auth>=2.62.2",
     "google-auth-oauthlib>=1.5.0",
+    "httpx>=0.28",
     "openai>=3.52.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45,<2",
+    "opentelemetry-sdk>=1.45,<2",
     "pdfplumber>=0.11.10",
     "pydantic>=2.14.3",
     "python-docx>=1.2.0",
@@ -32,7 +36,11 @@ packages = ["server"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-markers = ["live: runs real models, costs money (KA_LIVE_EVALS=1)"]
+markers = [
+    "live: runs real models, costs money (KA_LIVE_EVALS=1)",
+    "regression: eval cases that must stay near 100%",
+    "capability: eval cases expected to start low and climb",
+]
 
 [tool.ruff]
 line-length = 100

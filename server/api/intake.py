@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from server.agent.adapters import AdapterError
 from server.config import Config
+from server.flags import is_on
 from server.intake.readers import SUPPORTED
 from server.intake.runner import Basics, run_onboarding_job
 from server.store.db import Db
@@ -23,7 +24,7 @@ MAX_TEXT = 60_000
 
 
 def _on(request: Request) -> None:
-    if not request.app.state.cfg.flags.get("intake"):
+    if not is_on(request.state.cfg, "intake"):
         raise HTTPException(404, "intake is off")
 
 

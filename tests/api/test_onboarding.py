@@ -6,11 +6,14 @@ from fastapi.testclient import TestClient
 from server.agent.adapters.fake import FakeAdapter
 from server.api.app import create_app
 from server.store.db import Db
+from tests.conftest import add_account
 
 
 def client_for(cfg, intake=True) -> TestClient:
     cfg = cfg.model_copy(update={"flags": {"intake": intake}})
-    return TestClient(create_app(cfg, lambda: FakeAdapter([])), base_url="http://localhost")
+    c = TestClient(create_app(cfg, lambda: FakeAdapter([])), base_url="http://localhost")
+    c.cookies.set("ka_session", add_account(cfg))
+    return c
 
 
 @pytest.fixture
@@ -19,7 +22,7 @@ def empty_repo(cfg):
     (root / "jobs.yaml").write_text("domains: []\njobs: []\n")
     (root / "profile.yaml").write_text('name: ""\n')
     (root / "education.yaml").write_text("entries: []\n")
-    (root / "memory.yaml").write_text("entries: []\n")
+    (root / "memory" / "core.yaml").write_text("entries: []\n")
     return cfg
 
 
@@ -48,7 +51,7 @@ def test_a_name_alone_counts_as_data(empty_repo):
 
 def test_cards_waiting_in_pending_hold_the_redirect_until_decided(empty_repo):
     c = client_for(empty_repo)
-    db = Db(empty_repo.db_path)
+    db = Db(empty_repo.db_path, empty_repo.user_id)
     card = db.add_pending("bundle", {"section": "basics"}, "onboarding", datetime.now())
     assert status(c) == {"needed": False, "reason": "pending"}
     db.set_pending_status(card, "rejected")  # rejected everything: still nothing known
@@ -61,7 +64,7 @@ def test_unreadable_repo_does_not_trap_the_owner(empty_repo):
 
 
 def test_finance_cards_do_not_hold_the_redirect(empty_repo):
-    db = Db(empty_repo.db_path)
+    db = Db(empty_repo.db_path, empty_repo.user_id)
     db.add_pending("statement", {}, "drive", datetime.now())
     db.add_pending("bundle", {"section": "categories"}, "suggest", datetime.now())
     assert status(client_for(empty_repo)) == {"needed": True, "reason": "first_run"}
@@ -69,6 +72,6 @@ def test_finance_cards_do_not_hold_the_redirect(empty_repo):
 
 def test_a_running_onboarding_job_holds_the_redirect(empty_repo):
     c = client_for(empty_repo)  # startup fails interrupted jobs, so start the job after it
-    db = Db(empty_repo.db_path)
+    db = Db(empty_repo.db_path, empty_repo.user_id)
     db.update_intake_job(db.new_intake_job("onboarding", datetime.now()), status="running")
     assert status(c) == {"needed": False, "reason": "pending"}

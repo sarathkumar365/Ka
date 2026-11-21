@@ -162,3 +162,29 @@ def test_batch_with_one_bad_patch_changes_nothing(repo):
     assert (repo / "jobs.yaml").read_text() == text
     with pytest.raises(ChangeError):
         plan_batch(repo, [], "m")
+
+
+MEM = {"type": "preference", "text": "Likes slow sci-fi", "created": "2031-04-05", "updated": "2031-04-05"}
+
+
+def test_memory_ids_stay_unique_across_files(repo):
+    from server.integrations.data_repo.loader import load_memory
+
+    plan = plan_change(repo, Patch(target="memory", op="add", scope="movies", fields=MEM))
+    apply_change(repo, plan)
+    apply_change(repo, plan_change(repo, Patch(target="memory", op="add", fields={**MEM, "text": "Owns a bike"})))
+    movies = load_memory(repo, "movies").entries
+    core = load_data(repo).memory.entries
+    assert movies[-1].text == "Likes slow sci-fi"
+    ids = [e.id for e in movies + core]
+    assert len(ids) == len(set(ids))
+
+
+def test_toolkit_memory_is_validated(repo):
+    (repo / "memory" / "movies.yaml").write_text("entries:\n  - {id: M-0001, type: fact, text: x, created: '2031-01', updated: '2031-01'}\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "dup")
+    from server.integrations.data_repo.loader import DataRepoError
+
+    with pytest.raises(DataRepoError, match="M-0001"):
+        load_data(repo)

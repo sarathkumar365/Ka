@@ -1,20 +1,19 @@
 """Run a question through the real loop against the persona and grade it with code checks."""
 
 import re
-import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from server.agent.adapters import Adapter
 from server.agent.loop import Event, run_turn
 from server.agent.tools import PendingWrite, ToolContext
-from server.config import Config
 from server.finance.store import CsvFinanceStore
 from server.store.db import Db
-from tests.conftest import FIXTURE
+from tests.conftest import make_repo
 from tests.evals.persona import TODAY, seed_store
 
 
@@ -44,6 +43,15 @@ class EvalCase:
     approve: bool = False  # what the owner answers if asked
     setup: Callable[[Env], None] = lambda env: None
     injected_description: str | None = None  # planted in a transaction (prompt-injection case)
+    suite: Literal["regression", "capability"] = "regression"
+    runs: int = 3
+    must_pass_all: bool = False  # finance answers must be right every time
+    rubric: str | None = None  # set: the LLM judge grades it after the code checks pass
+
+
+def needed(case: EvalCase) -> int:
+    """Passing runs required: all for finance cases, otherwise a majority."""
+    return case.runs if case.must_pass_all else case.runs // 2 + 1
 
 
 def called(name: str) -> Check:
@@ -128,23 +136,16 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def run_case(case: EvalCase, adapter: Adapter, tmp: Path) -> Run:
-    repo = tmp / "repo"
-    shutil.copytree(FIXTURE, repo)
-    for args in (
-        ("init", "-q", "-b", "main"),
-        ("config", "user.email", "eval@example.test"),
-        ("config", "user.name", "Eval"),
-        ("add", "-A"),
-        ("commit", "-q", "-m", "init"),
-    ):
-        _git(repo, *args)
+    # A fresh copy of the synthetic persona per run: never the real data repo, CSV or Sheet.
+    cfg = make_repo(tmp / "repo")
+    repo = cfg.data_repo
     (repo / "local" / "statements").mkdir(parents=True)
-    store = CsvFinanceStore(tmp / "fin")
+    store = CsvFinanceStore(tmp / "fin", cfg.user_id)
     seed_store(store, case.injected_description)
-    ctx = ToolContext(config=Config(data_repo=repo), store=store, today=lambda: TODAY)
+    ctx = ToolContext(config=cfg, store=store, today=lambda: TODAY)
     case.setup(Env(ctx, repo))
     before = int(_git(repo, "rev-list", "--count", "HEAD"))
-    db = Db(":memory:")
+    db = Db(":memory:", cfg.user_id)
     conv = db.new_conversation(datetime(2030, 11, 15))
     calls: list[tuple[str, dict]] = []
     approvals: list[PendingWrite] = []

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { registerDraft, takeDraft } from '../auth/session'
 import { Icon } from '../../lib/icons'
 
 export function Composer({
@@ -18,6 +19,18 @@ export function Composer({
   onFocusChange: (typing: boolean) => void
 }) {
   const [text, setText] = useState('')
+  useEffect(() => {
+    const d = takeDraft() // a message left unsent when the session ended
+    if (d) setText(d)
+  }, [])
+  const latest = useRef(text)
+  useEffect(() => {
+    latest.current = text
+  }, [text])
+  useEffect(() => {
+    registerDraft(() => latest.current)
+    return () => registerDraft(null)
+  }, [])
   const submit = () => {
     const t = text.trim()
     if (!t || disabled) return

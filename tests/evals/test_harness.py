@@ -39,6 +39,7 @@ def test_good_script_for_remember_case_passes_through_the_real_loop(tmp_path):
 def test_good_script_for_summary_case_passes(tmp_path):
     c = case(1)
     adapter = scripted(
+        ("load_toolkit", {"name": "finance"}),
         ("finance_summary", {"start": "2030-10-01", "end": "2030-10-31"}),
         final="You spent 153.50 in October.",
     )
@@ -54,3 +55,39 @@ def test_bad_script_is_graded_as_failure(tmp_path):
 def test_answer_checks_ignore_curly_quotes():
     run = Run("I don’t have that", [], [], 0, 1)
     assert answer_has("don't have")(run) is None
+
+
+def test_judge_reads_first_line():
+    from tests.evals.judge import judge
+
+    assert judge(FakeAdapter([Reply(text="PASS\nclear")]), "q", "a", "r") == (True, "clear")
+    assert judge(FakeAdapter([Reply(text="fail: vague")]), "q", "a", "r")[0] is False
+    assert judge(FakeAdapter([Reply(text="maybe")]), "q", "a", "r")[0] is False
+
+
+def test_finance_case_needs_every_run():
+    from tests.evals.harness import EvalCase, needed
+
+    assert needed(EvalCase(1, "q", [], must_pass_all=True, runs=3)) == 3
+    assert needed(EvalCase(2, "q", [])) == 2
+    assert case(1).must_pass_all and not case(6).must_pass_all
+    assert {c.suite for c in CASES} == {"regression"}
+
+
+def test_compare_lists_regressions(tmp_path):
+    from tests.evals.compare import compare, record
+
+    a, b = tmp_path / "a.jsonl", tmp_path / "b.jsonl"
+    record(a, [{"case": 1, "passed": True}, {"case": 2, "passed": False}])
+    record(b, [{"case": 1, "passed": False}, {"case": 2, "passed": True}])
+    assert compare(a, b) == ["q01"]
+
+
+def test_run_case_uses_only_temp_copies(tmp_path):
+    from tests.evals.harness import EvalCase
+
+    seen = {}
+    c = EvalCase(99, "q", [], setup=lambda env: seen.update(root=env.ctx.config.data_repo, fin=env.ctx.store.folder))
+    run_case(c, FakeAdapter([Reply(text="ok")]), tmp_path)
+    assert seen["root"].is_relative_to(tmp_path) and seen["fin"].is_relative_to(tmp_path)
+    assert seen["root"].parent.name == "users"

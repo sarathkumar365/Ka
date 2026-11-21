@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from server.config import Config
+from server.flags import is_on
 from server.integrations.google.oauth import GoogleAuth, GoogleAuthError, auth_for
 from server.store.db import Db
 
@@ -14,8 +15,8 @@ router = APIRouter()
 
 
 def _auth(request: Request) -> GoogleAuth:
-    cfg: Config = request.app.state.cfg
-    if not cfg.flags.get("google") or cfg.google is None:
+    cfg: Config = request.state.cfg
+    if not is_on(cfg, "google") or cfg.google is None:
         raise HTTPException(404, "google is off")
     # one GoogleAuth per app, so the web flow's state survives between login and callback
     if getattr(request.app.state, "google_auth", None) is None:
@@ -71,7 +72,7 @@ def sync(request: Request):
 
     _auth(request)
     try:
-        r = run_sync(request.app.state.cfg, datetime.now())
+        r = run_sync(request.state.cfg, datetime.now())
     except GoogleAuthError as e:
         raise HTTPException(409, str(e)) from None
     except Exception as e:  # noqa: BLE001  network or API failure, recorded in drive_sync
@@ -84,6 +85,6 @@ def push(request: Request):
     from server.finance.sheet_copy import push_from_config
 
     _auth(request)
-    if not push_from_config(request.app.state.cfg):
+    if not push_from_config(request.state.cfg):
         raise HTTPException(502, "Sheet copy failed; see the status line")
     return {"ok": True}

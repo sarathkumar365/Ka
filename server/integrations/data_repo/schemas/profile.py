@@ -1,4 +1,4 @@
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from .common import KaModel, PartialDate
 
@@ -46,6 +46,19 @@ class Profile(KaModel):
     addresses: list[Address] = []
     links: list[Link] = []
     summary: str = ""
+    timezone: str | None = None  # IANA name, e.g. America/Toronto
+
+    @field_validator("timezone")
+    @classmethod
+    def _real_zone(cls, v: str | None) -> str | None:
+        if v is not None:
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            try:
+                ZoneInfo(v)
+            except (ZoneInfoNotFoundError, ValueError) as e:
+                raise ValueError(f"unknown time zone {v}") from e
+        return v
 
     @model_validator(mode="after")
     def _one_current_address(self):

@@ -166,3 +166,49 @@ def test_only_pins_providers():
     a = OpenAICompatAdapter("m", None, "k", client=client, zdr=True, only=["amazon-bedrock"])
     a.complete([], [])
     assert client.last["extra_body"]["provider"]["only"] == ["amazon-bedrock"]
+
+
+def test_fallbacks_cache_and_reasoning_reach_the_body():
+    fake = FakeClient([good()])
+    a = OpenAICompatAdapter(
+        "m1", None, "k", client=fake, fallbacks=["m2"], cache=True, reasoning="high"
+    )
+    a.complete([{"role": "system", "content": "S"}, {"role": "user", "content": "u"}], [])
+    body = fake.last
+    assert body["extra_body"]["models"] == ["m1", "m2"]
+    assert body["extra_body"]["reasoning"] == {"effort": "high"}
+    assert body["messages"][0]["content"][0] == {
+        "type": "text", "text": "S", "cache_control": {"type": "ephemeral"}
+    }
+    assert body["messages"][1] == {"role": "user", "content": "u"}
+
+
+def test_usage_cost_and_cache_hits_are_read():
+    from decimal import Decimal
+
+    resp = good()
+    resp.usage = NS(prompt_tokens=900, completion_tokens=5, cost=0.0012,
+                    prompt_tokens_details=NS(cached_tokens=800))
+    r = OpenAICompatAdapter("m", None, "k", client=FakeClient([resp])).complete([], [])
+    assert r.usage.cost_usd == Decimal("0.0012") and r.usage.cached_tokens == 800
+
+
+def test_plain_usage_has_no_cost():
+    r = OpenAICompatAdapter("m", None, "k", client=FakeClient([good()])).complete([], [])
+    assert r.usage.cost_usd is None and r.usage.cached_tokens == 0
+
+
+def test_small_and_grader_fall_back_to_default():
+    from pathlib import Path
+
+    from server.config import Config
+
+    cfg = Config(data_repo=Path("/x"), models={"default": ModelConfig(provider="ollama", model="d")})
+    assert cfg.model_for("small").model == "d" and cfg.model_for("chat").model == "d"
+    cfg2 = cfg.model_copy(update={"models": {**cfg.models, "grader": ModelConfig(provider="ollama", model="g")}})
+    assert cfg2.model_for("grader").model == "g"
+
+
+def test_fallbacks_need_openrouter():
+    with pytest.raises(ValueError):
+        ModelConfig(provider="openai", model="m", fallbacks=["x"])

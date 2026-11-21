@@ -31,12 +31,12 @@ def chat_loop(
     resume: str | None = None,
     private_adapter: Adapter | None = None,
 ) -> None:
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     if resume and not db.conversation_exists(resume):
         out(f"no such conversation: {resume}")
         return
     conv_id = resume or db.new_conversation(datetime.now())
-    ctx = ToolContext(config=cfg, store=CsvFinanceStore(cfg.finance_dir), db=db)
+    ctx = ToolContext(config=cfg, store=CsvFinanceStore(cfg.finance_dir, cfg.user_id), db=db)
     out(f"conversation {conv_id} (type 'exit' to leave; resume with --resume {conv_id})")
 
     def show(e: Event) -> None:

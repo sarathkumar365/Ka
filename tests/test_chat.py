@@ -29,7 +29,7 @@ def test_chat_loop_runs_two_turns_with_fake_adapter_and_saves_them(ctx):
     out = []
     chat_loop(cfg, adapter, ask=lambda q: next(typed), out=out.append)
     assert "first answer" in out and "second answer" in out
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     [cid] = [r[0] for r in db.conn.execute("select id from conversations")]
     texts = [m["content"] for m in db.messages(cid)]
     assert texts == ["hello", "first answer", "again", "second answer"]

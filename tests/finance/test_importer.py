@@ -60,26 +60,26 @@ def test_failed_checks_write_nothing_and_unknown_account_is_explained(tmp_path):
 
 
 def test_cli_import_prompt_and_statements_list(tmp_path, monkeypatch, capsys):
-    repo = tmp_path / "repo"
+    repo = tmp_path / "base" / "users" / "avery"
     shutil.copytree(FIX, repo)
     (repo / "local" / "statements").mkdir(parents=True)
     pdf = repo / "local" / "statements" / "s.pdf"
     build_statement(pdf, StatementSpec(rows=ROWS))
     cfg = tmp_path / "c.yaml"
-    cfg.write_text(f"data_repo: {repo}\n")
+    cfg.write_text(f"data_repo: {tmp_path / 'base'}\n")
     monkeypatch.setenv("KA_CONFIG", str(cfg))
 
     monkeypatch.setattr("builtins.input", lambda _: "n")
-    assert main(["import", str(pdf)]) == 0
+    assert main(["--user", "avery", "import", str(pdf)]) == 0
     assert "declined" in capsys.readouterr().out
-    assert main(["statements"]) == 0 and capsys.readouterr().out.startswith("new")
+    assert main(["--user", "avery", "statements"]) == 0 and capsys.readouterr().out.startswith("new")
 
     monkeypatch.setattr("builtins.input", lambda _: "y")
-    assert main(["import", str(pdf)]) == 0
+    assert main(["--user", "avery", "import", str(pdf)]) == 0
     assert "checks: 4 passed" in capsys.readouterr().out
-    assert main(["statements"]) == 0 and capsys.readouterr().out.startswith("imported")
+    assert main(["--user", "avery", "statements"]) == 0 and capsys.readouterr().out.startswith("imported")
 
     scanned = tmp_path / "scan.pdf"
     build_statement(scanned, StatementSpec(text_layer=False))
-    assert main(["import", str(scanned)]) == 1
+    assert main(["--user", "avery", "import", str(scanned)]) == 1
     assert "no text layer" in capsys.readouterr().out

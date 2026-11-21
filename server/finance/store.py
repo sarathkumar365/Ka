@@ -20,8 +20,9 @@ class FinanceStore(Protocol):
 
 
 class CsvFinanceStore:
-    def __init__(self, folder: Path) -> None:
+    def __init__(self, folder: Path, user_id: str = "") -> None:
         self.folder = folder
+        self.user_id = user_id  # stamped on rows this store adds
         folder.mkdir(parents=True, exist_ok=True)
         self._statements = folder / "statements.csv"
         self._transactions = folder / "transactions.csv"
@@ -66,6 +67,9 @@ class CsvFinanceStore:
             return self._add_import(statement, rows)
 
     def _add_import(self, statement: StatementRecord, rows: list[Transaction]) -> int:
+        if self.user_id:
+            statement = statement.model_copy(update={"user_id": self.user_id})
+            rows = [r.model_copy(update={"user_id": self.user_id}) for r in rows]
         # Transactions first: if we stop between the two writes, re-running finishes the import.
         stored_rows = self.transactions()
         known = {t.id for t in stored_rows}

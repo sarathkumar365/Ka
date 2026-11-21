@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom'
 import { api, keys, type MemoryRow, type PendingRow } from '../../lib/api'
 import { Icon } from '../../lib/icons'
 import { BundleCard } from './BundleCard'
+import { AlertCard, ToolWriteCard } from './LoopCards'
 import { StatementCard } from './StatementCard'
 
 export type Decided = (dir: 'yes' | 'no') => void
@@ -64,6 +65,8 @@ function Card({ item, onDone }: { item: MemoryRow; onDone: Decided }) {
 function Any({ row, onDone }: { row: PendingRow; onDone: Decided }) {
   if (row.kind === 'bundle') return <BundleCard card={row} onDone={onDone} />
   if (row.kind === 'statement') return <StatementCard card={row} onDone={onDone} />
+  if (row.kind === 'tool_write') return <ToolWriteCard card={row} onDone={onDone} />
+  if (row.kind === 'alert') return <AlertCard card={row} onDone={onDone} />
   return <Card item={row} onDone={onDone} />
 }
 

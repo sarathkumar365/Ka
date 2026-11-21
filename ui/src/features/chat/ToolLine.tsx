@@ -3,15 +3,20 @@ import { Icon } from '../../lib/icons'
 
 const LABELS: Record<string, string> = {
   finance_summary: 'Looked at your spending',
-  search_transactions: 'Searched transactions',
-  sum_transactions: 'Added up transactions',
-  list_statements: 'Listed statements',
+  finance_search_transactions: 'Searched transactions',
+  finance_sum_transactions: 'Added up transactions',
+  finance_list_statements: 'Listed statements',
   search_conversations: 'Searched past chats',
   get_jobs: 'Read your jobs',
   get_profile: 'Read your profile',
   propose_change: 'Proposed a change',
   propose_memory: 'Suggested a memory',
   remember: 'Saved a memory',
+  finance_import_statement: 'Prepared a statement import',
+  // names before the finance_ prefix, still in older saved chats
+  search_transactions: 'Searched transactions',
+  sum_transactions: 'Added up transactions',
+  list_statements: 'Listed statements',
   import_statement: 'Prepared a statement import',
 }
 

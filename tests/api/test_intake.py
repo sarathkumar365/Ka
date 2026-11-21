@@ -8,7 +8,7 @@ from server.agent.adapters.base import Reply
 from server.agent.adapters.fake import FakeAdapter
 from server.integrations.data_repo.loader import load_data
 from server.store.db import Db
-from tests.conftest import git
+from tests.conftest import add_account, git
 
 GOOD = json.dumps(
     {
@@ -40,6 +40,7 @@ def on(cfg, make_client):
 
         app = create_app(flagged, lambda: FakeAdapter([Reply(text=GOOD)] * 4), **kw)
         c = TestClient(app, base_url="http://localhost")
+        c.cookies.set("ka_session", add_account(flagged))
         c.cfg = flagged
         return c
 
@@ -142,7 +143,7 @@ def test_onboarding_send_needs_something(on):
 
 def test_onboarding_send_while_running_is_409(on, cfg):
     c = on()
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     db.update_intake_job(db.new_intake_job("documents", datetime.now()), status="running")
     assert send(c).status_code == 409
 

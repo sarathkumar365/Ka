@@ -1,6 +1,7 @@
 """Provider-neutral model interface. The loop only ever sees these types."""
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Protocol
 
 
@@ -19,6 +20,8 @@ class ToolCall:
 class Usage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    cached_tokens: int = 0
+    cost_usd: Decimal | None = None  # OpenRouter reports it; others leave it empty
 
 
 @dataclass
@@ -32,7 +35,10 @@ class Adapter(Protocol):
     def complete(self, messages: list[dict], tools: list[dict]) -> Reply: ...
 
 
-def tool_specs(registry: dict) -> list[dict]:
+def tool_specs(tools) -> list[dict]:
+    """JSON tool specs for the model, from Tool objects (or a name -> Tool dict)."""
+    if isinstance(tools, dict):
+        tools = tools.values()
     return [
         {
             "type": "function",
@@ -42,5 +48,5 @@ def tool_specs(registry: dict) -> list[dict]:
                 "parameters": t.args_model.model_json_schema(),
             },
         }
-        for t in registry.values()
+        for t in tools
     ]

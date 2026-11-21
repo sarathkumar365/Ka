@@ -154,6 +154,7 @@ def test_closing_the_stream_mid_approval_frees_the_conversation_quickly(make_cli
             "headers": [
                 (b"host", b"localhost"),
                 (b"content-type", b"application/json"),
+                (b"cookie", f"ka_session={client.cookies['ka_session']}".encode()),
                 (b"content-length", str(len(body)).encode()),
             ],
         }

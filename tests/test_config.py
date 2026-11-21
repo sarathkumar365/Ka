@@ -7,10 +7,10 @@ from server.config import ConfigError, load_config
 
 def test_loads_paths_flags_and_expands_home(tmp_path):
     f = tmp_path / "c.yaml"
-    f.write_text("data_repo: ~/x\nflags:\n  voice_mic: false\n")
+    f.write_text("data_repo: ~/x\nflags:\n  loops: false\n")
     cfg = load_config(f)
     assert cfg.data_repo == Path.home() / "x"
-    assert cfg.flags["voice_mic"] is False
+    assert cfg.flags["loops"] is False
     assert cfg.finance_dir == Path.home() / "x" / "local" / "finance"
 
 

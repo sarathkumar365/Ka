@@ -8,6 +8,7 @@ from server.agent.adapters.fake import FakeAdapter
 from server.api.app import create_app
 from server.config import GoogleConfig
 from server.integrations.google.oauth import GoogleAuth, GoogleAuthError
+from tests.conftest import add_account
 
 
 def gcfg(tmp_path):
@@ -69,6 +70,7 @@ def test_token_written_with_mode_0600(tmp_path):
 def test_callback_rejects_wrong_state(ctx, tmp_path):
     cfg = ctx.config.model_copy(update={"flags": {"google": True}, "google": gcfg(tmp_path)})
     c = TestClient(create_app(cfg, lambda: FakeAdapter([])), base_url="http://localhost")
+    c.cookies.set("ka_session", add_account(cfg))
     r = c.get("/api/google/callback", params={"state": "forged", "code": "x"})
     assert r.status_code == 400
     assert c.get("/api/google/status").json()["connected"] is False

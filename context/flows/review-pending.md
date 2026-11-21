@@ -28,3 +28,5 @@ Pending 4: "Prefers hybrid roles", replaces M-0001. `approve_pending` builds a `
 | Retire step fails | new entry kept, error names the old id |
 
 Interview questions: [review-pending.interview.md](interview/review-pending.interview.md)
+
+**Toolkit memory.** A memory card carries `toolkit` (default `core`); approval writes it to `memory/<toolkit>.yaml` with the same retire-and-replace rule, and `replaced_by` must point inside the same file. Ids share the one `M` counter, so they stay unique across files.

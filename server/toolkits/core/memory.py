@@ -5,16 +5,16 @@ from typing import Literal
 
 from pydantic import Field
 
+from server.agent.tools.registry import ToolContext, ToolError, tool
 from server.integrations.data_repo.schemas.common import KaModel
 from server.memory.pending import PendingError, queue_memory
-
-from .registry import ToolContext, ToolError, tool
 
 
 class ProposeMemoryArgs(KaModel):
     text: str = Field(min_length=1)
     type: Literal["fact", "preference", "rule"] = "fact"
     replaces: str | None = None  # id of an active memory this contradicts
+    toolkit: str = Field(default="core", pattern=r"^[a-z]+$")  # which memory file
 
 
 @tool(
@@ -23,7 +23,7 @@ class ProposeMemoryArgs(KaModel):
     "Use replaces=<memory id> when it contradicts an existing memory. Use remember instead when "
     "the owner explicitly asked you to remember something.",
     ProposeMemoryArgs,
-    mode="WRITE",
+    activity="Suggested a memory",
 )
 def propose_memory(args: ProposeMemoryArgs, ctx: ToolContext):
     if ctx.db is None:
@@ -37,6 +37,7 @@ def propose_memory(args: ProposeMemoryArgs, ctx: ToolContext):
             args.replaces,
             ctx.conversation_id,
             datetime.now(),
+            toolkit=args.toolkit,
         )
     except PendingError as e:
         raise ToolError(str(e)) from e

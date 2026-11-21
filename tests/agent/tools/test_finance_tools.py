@@ -40,10 +40,10 @@ def seed(ctx, file_name="a.pdf"):
 
 def test_tools_return_strings_limit_rows_and_mark_imported_files(ctx):
     seed(ctx)
-    found = run_tool("search_transactions", {"limit": 2}, ctx)
+    found = run_tool("finance_search_transactions", {"limit": 2}, ctx)
     assert (len(found["rows"]), found["total_matches"], found["truncated"]) == (2, 3, True)
     assert found["rows"][0]["amount"] == "-1.50"
-    assert run_tool("sum_transactions", {"ids": ["s-001", "s-002"]}, ctx)["total"] == "-3.00"
+    assert run_tool("finance_sum_transactions", {"ids": ["s-001", "s-002"]}, ctx)["total"] == "-3.00"
     summary = run_tool("finance_summary", {"start": "2031-04-01", "end": "2031-04-30"}, ctx)
     assert summary["spending"] == "4.50"
 
@@ -51,7 +51,7 @@ def test_tools_return_strings_limit_rows_and_mark_imported_files(ctx):
     statements.mkdir(parents=True)
     (statements / "a.pdf").write_bytes(b"x")
     (statements / "b.pdf").write_bytes(b"x")
-    files = run_tool("list_statements", {}, ctx)["files"]
+    files = run_tool("finance_list_statements", {}, ctx)["files"]
     assert files == [{"name": "a.pdf", "imported": True}, {"name": "b.pdf", "imported": False}]
 
 

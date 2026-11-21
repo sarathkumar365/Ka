@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from server.config import Config
+from server.flags import is_on
 from server.integrations.data_repo.loader import DataRepoError, load_data
 from server.store.db import Db
 
@@ -16,7 +17,7 @@ FINANCE_SECTIONS = {"categories", "types"}
 def status(cfg: Config = Depends(get_cfg), db: Db = Depends(get_db)):
     """Decided from the data, not a one-time flag: while Ka knows nothing about the owner, it
     opens on Onboarding. Finance rows do not count; they say nothing about who the owner is."""
-    if not cfg.flags.get("intake"):
+    if not is_on(cfg, "intake"):
         return {"needed": False, "reason": "off"}
     try:
         d = load_data(cfg.data_repo)

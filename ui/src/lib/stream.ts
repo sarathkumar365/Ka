@@ -1,4 +1,5 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
+import { onUnauthorized } from '../features/auth/session'
 import type { ChatEvent } from '../features/chat/state'
 
 type ChatRequest = { conversation_id: string | null; text: string }
@@ -39,6 +40,7 @@ export async function streamChat(
     signal,
     openWhenHidden: true,
     async onopen(res) {
+      if (res.status === 401) onUnauthorized(body.text)
       if (!res.ok) {
         let detail = res.statusText
         try {

@@ -4,6 +4,7 @@ from server.agent.adapters import AdapterError
 from server.config import Config
 from server.scheduler import LAST_DAY, catch_up_extraction, nightly_job
 from server.store.db import Db
+from tests.conftest import add_account
 
 TODAY = date(2031, 4, 10)
 
@@ -45,7 +46,7 @@ def test_failed_run_logs_and_survives(tmp_path, ctx):
 
     job = nightly_job(cfg, broken, today=lambda: TODAY)
     job.run()  # must not raise
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     assert any("extraction failed" in a.text for a in db.list_activity(10))
     assert db.get_state(LAST_DAY) is None
 
@@ -55,7 +56,8 @@ def test_app_starts_scheduler_only_when_asked(ctx):
 
     from server.api.app import create_app
 
-    cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
+    cfg = ctx.config.model_copy(update={"flags": {"nightly_extraction": True}})
+    add_account(cfg)
     calls: list[int] = []
 
     def factory():
@@ -76,7 +78,7 @@ def test_provider_outage_does_not_mark_day_done(ctx):
     from datetime import datetime as dt
 
     cfg = Config(data_repo=ctx.config.data_repo, flags={"nightly_extraction": True})
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     cid = db.new_conversation(dt(2031, 4, 9, 10, 0))
     db.add_message(cid, {"role": "user", "content": "I moved"}, dt(2031, 4, 9, 10, 0))
     db.conn.close()
@@ -86,7 +88,7 @@ def test_provider_outage_does_not_mark_day_done(ctx):
             raise AdapterError("provider timeout")
 
     nightly_job(cfg, lambda: Down(), today=lambda: TODAY).run()
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     assert db.get_state(LAST_DAY) is None
     assert any("extraction failed" in a.text for a in db.list_activity(10))
 

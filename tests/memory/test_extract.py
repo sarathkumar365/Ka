@@ -48,7 +48,7 @@ def test_extract_bad_json_queues_nothing():
 
 
 def test_extract_never_sends_finance_tool_output():
-    for tool in ("search_transactions", "import_statement"):
+    for tool in ("finance_search_transactions", "finance_import_statement"):
         db = Db(":memory:")
         conversation(db, tool, "SECRET-ROW Corner Cafe -4.50")
         adapter = FakeAdapter([reply([])])

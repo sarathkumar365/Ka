@@ -6,6 +6,7 @@ import threading
 from datetime import datetime
 
 from server.config import Config
+from server.flags import is_on
 from server.integrations.google.sheets import SheetsClient
 from server.store.db import Db
 
@@ -45,7 +46,7 @@ def push_sheet(
 def push_from_config(cfg: Config) -> bool:
     """Sign in and copy; used after imports and recategorising when the google flag is on."""
 
-    if not cfg.flags.get("google") or cfg.google is None:
+    if not is_on(cfg, "google") or cfg.google is None:
         return False
     with _PUSH_LOCK:  # the store is read inside the lock, so the newest copy always wins
         return _push_locked(cfg)
@@ -57,7 +58,7 @@ def _push_locked(cfg: Config) -> bool:
 
     from .store import CsvFinanceStore
 
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     try:
         try:
             sheets = ApiSheets(auth_for(cfg).credentials())
@@ -65,7 +66,7 @@ def _push_locked(cfg: Config) -> bool:
             db.set_state(STATUS, json.dumps({"at": datetime.now().isoformat(), "error": str(e)}))
             return False
         return push_sheet(
-            sheets, cfg.google.sheet_id, CsvFinanceStore(cfg.finance_dir), db, datetime.now()
+            sheets, cfg.google.sheet_id, CsvFinanceStore(cfg.finance_dir, cfg.user_id), db, datetime.now()
         )
     finally:
         db.conn.close()

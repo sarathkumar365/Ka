@@ -3,6 +3,7 @@
 import os
 import time
 from collections.abc import Callable, Mapping
+from decimal import Decimal
 
 import openai
 
@@ -32,24 +33,39 @@ class OpenAICompatAdapter:
         max_tries: int = 3,
         zdr: bool = False,
         only: list[str] | None = None,
+        fallbacks: list[str] | None = None,
+        cache: bool = False,
+        reasoning: str | None = None,
     ) -> None:
         self.model, self.sleep, self.max_tries, self.zdr = model, sleep, max_tries, zdr
         self.only = only or []
+        self.fallbacks, self.cache, self.reasoning = fallbacks or [], cache, reasoning
         self.client = client or openai.OpenAI(
             base_url=base_url, api_key=api_key, timeout=60, max_retries=0
         )
 
     def complete(self, messages: list[dict], tools: list[dict]) -> Reply:
+        if self.cache:
+            messages = [_cached(m) if m.get("role") == "system" else m for m in messages]
         kwargs = {"model": self.model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
+        extra: dict = {}
         provider: dict = {}
         if self.zdr:
             provider |= {"zdr": True, "data_collection": "deny"}
         if self.only:
             provider["only"] = self.only
+        if self.fallbacks:
+            extra["models"] = [self.model, *self.fallbacks]  # OpenRouter tries them in order
+            if not self.only:
+                provider["allow_fallbacks"] = True
         if provider:
-            kwargs["extra_body"] = {"provider": provider}
+            extra["provider"] = provider
+        if self.reasoning:
+            extra["reasoning"] = {"effort": self.reasoning}
+        if extra:
+            kwargs["extra_body"] = extra
         for attempt in range(self.max_tries):
             try:
                 resp = self.client.chat.completions.create(**kwargs)
@@ -72,9 +88,29 @@ class OpenAICompatAdapter:
         calls = [
             ToolCall(c.id, c.function.name, c.function.arguments) for c in (msg.tool_calls or [])
         ]
-        u = resp.usage
-        usage = Usage(u.prompt_tokens, u.completion_tokens) if u else Usage()
+        usage = _usage(resp.usage)
         return Reply(text=msg.content, tool_calls=calls, usage=usage)
+
+
+def _cached(message: dict) -> dict:
+    """System prompt as a text part with a cache breakpoint: it repeats on every step."""
+    content = message.get("content")
+    if not isinstance(content, str):
+        return message
+    part = {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
+    return {**message, "content": [part]}
+
+
+def _usage(u) -> Usage:
+    if not u:
+        return Usage()
+    details = getattr(u, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", 0) or 0
+    cost = getattr(u, "cost", None)  # OpenRouter adds it; other providers leave it out
+    return Usage(
+        u.prompt_tokens, u.completion_tokens, int(cached),
+        Decimal(str(cost)) if cost is not None else None,
+    )  # fmt: skip
 
 
 def build_adapter(cfg: ModelConfig, env: Mapping[str, str] = os.environ) -> OpenAICompatAdapter:
@@ -88,6 +124,7 @@ def build_adapter(cfg: ModelConfig, env: Mapping[str, str] = os.environ) -> Open
         if not key:
             raise AdapterError("OPENROUTER_API_KEY not set")
         return OpenAICompatAdapter(
-            cfg.model, cfg.base_url or OPENROUTER_URL, key, zdr=cfg.zdr, only=cfg.only
-        )
+            cfg.model, cfg.base_url or OPENROUTER_URL, key, zdr=cfg.zdr, only=cfg.only,
+            fallbacks=cfg.fallbacks, cache=cfg.cache, reasoning=cfg.reasoning,
+        )  # fmt: skip
     return OpenAICompatAdapter(cfg.model, cfg.base_url or "http://localhost:11434/v1", "ollama")

@@ -1,4 +1,6 @@
-class ApiError extends Error {
+import { onUnauthorized } from '../features/auth/session'
+
+export class ApiError extends Error {
   status: number
   detail: string
   constructor(status: number, detail: string) {
@@ -13,6 +15,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: init?.body ? { 'content-type': 'application/json' } : undefined,
   })
+  if (res.status === 401 && !path.startsWith('/auth/')) onUnauthorized()
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -69,7 +72,60 @@ export type StatementRow = {
   source: string | null
   created_at: string
 }
-export type PendingRow = MemoryRow | BundleRow | StatementRow
+export type ToolWriteRow = {
+  kind: 'tool_write'
+  id: number
+  tool: string
+  summary: string
+  diff: string
+  run_id: number | null
+  after_untrusted: boolean
+  source: string | null
+  created_at: string
+}
+export type AlertRow = {
+  kind: 'alert'
+  id: number
+  title: string
+  detail: string
+  source: string | null
+  created_at: string
+}
+export type PendingRow = MemoryRow | BundleRow | StatementRow | ToolWriteRow | AlertRow
+export type AuthStatus = { setup_needed: boolean; user: string | null }
+export type TaskRun = {
+  id: number
+  task_id: string
+  started_at: string
+  finished_at: string | null
+  status: 'running' | 'ok' | 'stopped' | 'failed' | 'skipped'
+  reason: string
+  model_calls: number
+  tool_calls: number
+  cost_usd: string
+  result: Record<string, unknown>
+}
+export type Trigger =
+  | { type: 'interval' | 'folder'; minutes: number; source?: string }
+  | { type: 'cron'; hour: number; minute: number; day_of_week?: string }
+export type LoopTask = {
+  id: string
+  name: string
+  kind: 'builtin' | 'agent'
+  builtin: string | null
+  trigger: Trigger
+  brief: string
+  toolkits: string[]
+  mode: 'shadow' | 'direct'
+  status: 'active' | 'paused'
+  created_by: 'code' | 'ui' | 'ka'
+  created_at: string
+  last_checkin: string | null
+  last_run: TaskRun | null
+  approved: number
+  rejected: number
+}
+export type NewLoop = { name: string; brief: string; trigger: Trigger; toolkits: string[] }
 /** One thing Ka reads in an onboarding job (basics, a file, an assistant's export). */
 export type PartState = 'waiting' | 'reading' | 'done' | 'failed'
 export type IntakeJob = {
@@ -92,7 +148,7 @@ export type IntakeJob = {
 export type ActivityRow = {
   id: number
   at: string
-  kind: 'read' | 'change' | 'pending' | 'error' | 'sheet' | 'extraction'
+  kind: 'read' | 'change' | 'pending' | 'error' | 'sheet' | 'extraction' | 'loop' | 'blocked'
   text: string
   conversation_id: string | null
 }
@@ -107,6 +163,8 @@ export type Settings = {
   models: Record<string, { provider: string; model: string }>
   private_models: { provider: string; model: string }[]
   flags: Record<string, boolean>
+  flag_info: { name: string; description: string; on: boolean }[]
+  loops_paused: boolean
 }
 
 export const keys = {
@@ -117,6 +175,9 @@ export const keys = {
   onboarding: ['onboarding'] as const,
   google: ['google'] as const,
   intake: (id: string) => ['intake', id] as const,
+  auth: ['auth'] as const,
+  loops: ['loops'] as const,
+  runs: (id: string) => ['loops', id, 'runs'] as const,
 }
 
 const post = (path: string, body?: unknown) =>
@@ -139,6 +200,7 @@ export const api = {
   intakeJob: (id: string) => call<IntakeJob>(`/intake/${id}`),
   async sendOnboarding(form: FormData): Promise<{ job_id: string }> {
     const res = await fetch('/api/intake/onboarding', { method: 'POST', body: form })
+    if (res.status === 401) onUnauthorized()
     if (!res.ok) {
       let detail = res.statusText
       try {
@@ -151,4 +213,17 @@ export const api = {
     return res.json()
   },
   answerApproval: (id: string, approve: boolean) => post(`/approvals/${id}`, { approve }),
+  authStatus: () => call<AuthStatus>('/auth/status'),
+  login: (username: string, password: string) => post('/auth/login', { username, password }),
+  setup: (username: string, password: string) => post('/auth/setup', { username, password }),
+  logout: () => post('/auth/logout'),
+  loops: () => call<LoopTask[]>('/loops'),
+  createLoop: (body: NewLoop) => post('/loops', body) as Promise<LoopTask>,
+  updateLoop: (id: string, body: Partial<Pick<LoopTask, 'status' | 'mode'>>) =>
+    call<LoopTask>(`/loops/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteLoop: (id: string) => call<{ ok: boolean }>(`/loops/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  runLoop: (id: string) => post(`/loops/${encodeURIComponent(id)}/run`) as Promise<TaskRun>,
+  loopRuns: (id: string) => call<TaskRun[]>(`/loops/${encodeURIComponent(id)}/runs`),
+  setLoopsPaused: (paused: boolean) =>
+    call<{ paused: boolean }>('/loops/paused', { method: 'PUT', body: JSON.stringify({ paused }) }),
 }

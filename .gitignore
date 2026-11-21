@@ -13,3 +13,4 @@ statements/
 .claude/.reviewed
 ui/node_modules
 ui/dist
+tests/evals/results/

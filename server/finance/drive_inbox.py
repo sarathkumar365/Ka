@@ -61,7 +61,7 @@ def sync_drive(drive: DriveClient, cfg: Config, db: Db, now: datetime) -> SyncRe
     with _SYNC_LOCK:
         seen = set(json.loads(db.get_state(SEEN) or "[]"))
         cfg.statements_dir.mkdir(parents=True, exist_ok=True)
-        store = CsvFinanceStore(cfg.finance_dir)
+        store = CsvFinanceStore(cfg.finance_dir, cfg.user_id)
         data = load_data(cfg.data_repo)
         for f in drive.list_pdfs(cfg.google.drive_folder_id):
             if f.id in seen:
@@ -127,7 +127,7 @@ def run_sync(cfg: Config, now: datetime) -> SyncResult:
     from server.integrations.google.drive import ApiDrive
     from server.integrations.google.oauth import auth_for
 
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     try:
         return sync_drive(ApiDrive(auth_for(cfg).credentials()), cfg, db, now)
     except Exception as e:

@@ -1,7 +1,7 @@
 """Tool registry: name, description, validated args, READ or WRITE, and the approval seam."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date
 from typing import Any, Literal
 
@@ -46,13 +46,19 @@ class ToolContext:
 
 @dataclass(frozen=True)
 class Tool:
-    name: str
+    """Labels live in code: a tricked model cannot change a tool's toolkit or risk."""
+
+    name: str  # "<toolkit>_<verb>" outside core
     description: str
     args_model: type[KaModel]
     fn: Callable[[Any, ToolContext], Any]
-    mode: Literal["READ", "WRITE"]
-    approval: bool  # True: fn returns a PendingWrite for the loop to show and apply
+    toolkit: str = "core"
+    risk: Literal["safe", "risky"] = "safe"  # risky: writes, deletes, moves money, sends data out
+    approval: bool = False  # True: fn returns a PendingWrite for the loop to show and apply
+    untrusted: bool = False  # result carries outside text (web, statements, email)
     private: bool = False  # result holds finance data: the conversation moves to the private model
+    flag: str | None = None  # feature flag that must be on for the model to see it
+    activity: str = ""  # activity-log sentence; never echoes argument values
 
 
 REGISTRY: dict[str, Tool] = {}
@@ -62,14 +68,27 @@ def tool(
     name: str,
     description: str,
     args_model: type[KaModel],
-    mode: Literal["READ", "WRITE"] = "READ",
+    *,
+    toolkit: str = "core",
+    risk: Literal["safe", "risky"] = "safe",
     approval: bool = False,
+    untrusted: bool = False,
     private: bool = False,
+    flag: str | None = None,
+    activity: str = "",
 ):
+    if toolkit != "core" and not name.startswith(f"{toolkit}_"):
+        raise ValueError(f"{name}: tools of toolkit {toolkit} need the prefix {toolkit}_")
+    if approval and risk != "risky":
+        raise ValueError(f"{name}: a tool that needs approval must be labelled risky")
+
     def register(fn: Callable[[Any, ToolContext], Any]):
         if name in REGISTRY:
             raise ValueError(f"tool already registered: {name}")
-        REGISTRY[name] = Tool(name, description, args_model, fn, mode, approval, private)
+        REGISTRY[name] = Tool(
+            name, description, args_model, fn, toolkit, risk, approval, untrusted, private, flag,
+            activity,
+        )  # fmt: skip
         return fn
 
     return register
@@ -78,6 +97,8 @@ def tool(
 def to_json(value: Any) -> Any:
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
+    if is_dataclass(value) and not isinstance(value, type):
+        return to_json(asdict(value))
     if isinstance(value, dict):
         return {k: to_json(v) for k, v in value.items()}
     if isinstance(value, list | tuple):

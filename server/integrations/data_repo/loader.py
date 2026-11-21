@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -39,6 +39,8 @@ class KaData:
     transaction_types: TransactionTypesFile
     other: OtherFile
     ids: IdsFile
+    # memory/<toolkit>.yaml for each toolkit; core memory is `memory` above
+    toolkit_memory: dict[str, MemoryFile] = field(default_factory=dict)
 
 
 FILES = {
@@ -46,7 +48,7 @@ FILES = {
     "education": ("education.yaml", EducationFile),
     "jobs": ("jobs.yaml", JobsFile),
     "guardrails": ("guardrails.yaml", GuardrailsFile),
-    "memory": ("memory.yaml", MemoryFile),
+    "memory": ("memory/core.yaml", MemoryFile),
     "accounts": ("accounts.yaml", AccountsFile),
     "categories": ("categories.yaml", CategoriesFile),
     "merchant_rules": ("rules/merchants.yaml", MerchantRulesFile),
@@ -92,10 +94,15 @@ def _cross_checks(d: KaData) -> None:
     for r in d.merchant_rules.rules:
         if r.category not in d.categories.categories:
             raise DataRepoError("rules/merchants.yaml", r.id, f"unknown category {r.category}")
-    memory_ids = {m.id for m in d.memory.entries}
-    for m in d.memory.entries:
-        if m.replaced_by and m.replaced_by not in memory_ids:
-            raise DataRepoError("memory.yaml", m.id, f"replaced_by {m.replaced_by} not found")
+    memory_ids: set[str] = set()
+    for name, mem in {"core": d.memory, **d.toolkit_memory}.items():
+        here = {m.id for m in mem.entries}
+        for m in mem.entries:
+            if m.id in memory_ids:
+                raise DataRepoError(f"memory/{name}.yaml", m.id, "id already used in another memory file")
+            if m.replaced_by and m.replaced_by not in here:
+                raise DataRepoError(f"memory/{name}.yaml", m.id, f"replaced_by {m.replaced_by} not found")
+        memory_ids |= here
     in_use = {
         "E": [e.id for e in d.education.entries],
         "D": [x.id for x in d.jobs.domains],
@@ -114,8 +121,24 @@ def _cross_checks(d: KaData) -> None:
             raise DataRepoError("ids.yaml", prefix, f"next counter must exceed {prefix}-{top}")
 
 
+def memory_files(root: Path) -> list[str]:
+    """Toolkit memory files present in the repo (core excluded)."""
+    folder = root / "memory"
+    return sorted(p.stem for p in folder.glob("*.yaml") if p.stem != "core") if folder.is_dir() else []
+
+
+def load_memory(root: Path, toolkit: str) -> MemoryFile:
+    """One memory file; a toolkit with no file yet has no memories."""
+    if not re.fullmatch(r"[a-z]+", toolkit):
+        raise DataRepoError("memory", None, f"bad memory name {toolkit!r}")
+    if not (root / "memory" / f"{toolkit}.yaml").is_file():
+        return MemoryFile()
+    return _read(root, f"memory/{toolkit}.yaml", MemoryFile)
+
+
 def load_data(root: Path) -> KaData:
     loaded = {key: _read(root, name, model) for key, (name, model) in FILES.items()}
+    loaded["toolkit_memory"] = {n: load_memory(root, n) for n in memory_files(root)}
     data = KaData(**loaded)
     _cross_checks(data)
     return data

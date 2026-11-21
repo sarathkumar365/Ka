@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { type MouseEvent, useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { SetupStep } from '../features/auth/SetupStep'
 import { api, keys } from '../lib/api'
 import { useFirstRunRedirect } from '../features/onboarding/gate'
 import { Icon } from '../lib/icons'
@@ -8,6 +9,20 @@ import { Drawer } from './Sidebar'
 import { KaRingLayer } from '../features/onboarding/KaRing'
 
 export function Shell() {
+  // No focus refetch: an expired session is found by the next API call's 401, which saves the
+  // place and the unsent message before going to login (see auth/session.ts).
+  const { data: auth, isLoading } = useQuery({
+    queryKey: keys.auth,
+    queryFn: api.authStatus,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+  if (isLoading || !auth) return null
+  if (!auth.user) return auth.setup_needed ? <SetupStep /> : <Navigate to="/login" replace />
+  return <SignedIn />
+}
+
+function SignedIn() {
   const [open, setOpen] = useState(false)
   const nav = useNavigate()
   const { pathname } = useLocation()

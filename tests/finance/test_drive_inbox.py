@@ -71,14 +71,14 @@ def test_concurrent_syncs_queue_one_card(setup):
     cfg, _, body = setup
     drive = FakeDrive({"d1": ("a.pdf", body)})
     ts = [
-        threading.Thread(target=lambda: sync_drive(drive, cfg, Db(cfg.db_path), NOW))
+        threading.Thread(target=lambda: sync_drive(drive, cfg, Db(cfg.db_path, cfg.user_id), NOW))
         for _ in range(2)
     ]
     for t in ts:
         t.start()
     for t in ts:
         t.join()
-    assert len(statements(Db(cfg.db_path))) == 1
+    assert len(statements(Db(cfg.db_path, cfg.user_id))) == 1
 
 
 def test_two_copies_before_approval_second_closes(setup):

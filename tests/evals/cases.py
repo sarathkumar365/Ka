@@ -70,8 +70,8 @@ CASES = [
         4,
         "Import my latest Scotiabank statement.",
         [
-            called("list_statements"),
-            called("import_statement"),
+            called("finance_list_statements"),
+            called("finance_import_statement"),
             approval_requested("rows"),
             no_commit(),
         ],
@@ -125,7 +125,7 @@ CASES = [
     EvalCase(
         16,
         "What is in my statements folder?",
-        [called("list_statements"), not_called("import_statement")],
+        [called("finance_list_statements"), not_called("finance_import_statement")],
         setup=good_statement,
     ),
     EvalCase(17, "What is my credit score?", [answer_has_any(*MISSING), no_commit()]),
@@ -144,7 +144,7 @@ CASES = [
         20,
         "Import my latest Scotiabank statement.",
         [
-            called("import_statement"),
+            called("finance_import_statement"),
             no_approval(),
             nothing_imported(),
             answer_has_any("check", "reconcil", "total", "balance"),
@@ -152,3 +152,8 @@ CASES = [
         setup=bad_statement,
     ),
 ]
+
+# Money answers must be right on every run, not most runs.
+FINANCE = {1, 2, 3, 4, 5, 15, 16, 19, 20}
+for _c in CASES:
+    _c.must_pass_all = _c.id in FINANCE

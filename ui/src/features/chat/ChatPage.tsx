@@ -15,10 +15,10 @@ import { useTypewriter } from './useTypewriter'
 
 /** The composer doubles as the status line while Ka works (design: Thinking, Searching). */
 const RUNNING: Record<string, string> = {
-  search_transactions: 'Searching transactions',
-  sum_transactions: 'Adding up transactions',
+  finance_search_transactions: 'Searching transactions',
+  finance_sum_transactions: 'Adding up transactions',
   finance_summary: 'Looking at your spending',
-  list_statements: 'Listing statements',
+  finance_list_statements: 'Listing statements',
   search_conversations: 'Searching past chats',
   get_jobs: 'Reading your jobs',
   get_profile: 'Reading your profile',
@@ -26,6 +26,11 @@ const RUNNING: Record<string, string> = {
   propose_change: 'Preparing a change',
   propose_memory: 'Preparing a memory',
   remember: 'Preparing a memory',
+  finance_import_statement: 'Preparing a statement import',
+  // names before the finance_ prefix, still in older saved chats
+  search_transactions: 'Searching transactions',
+  sum_transactions: 'Adding up transactions',
+  list_statements: 'Listing statements',
   import_statement: 'Preparing a statement import',
 }
 

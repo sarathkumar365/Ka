@@ -362,3 +362,17 @@ The coding agent builds against mocks and synthetic data until each item is read
 - Onboarding collects everything first and sends it once from a final Send step; one background job reads basics, documents and memory exports together. Plan: `Docs/superpowers/plans/2026-11-17-ka-onboarding-send-once.md`.
 - Owner's calls: unsent input is lost on reload (a warning shows first, nothing is stored in the browser); the default model reads it; after the job a summary shows, then Review in Pending.
 - Motion (redesigned with the owner's `living-transitions` skill): the Send button morphs into the Ka ring, which splits into one arc per part Ka reads (bound to real progress), joins into a solid ring with the card count, then becomes the Pending bell badge. One canvas loop in the Shell; no GSAP, no particles. The new version of the app reloads itself when it takes over.
+
+## Next phase addendum (2026-11-20)
+
+Plan: `Docs/next-phase-plan.md`; tasks: `Docs/superpowers/plans/2026-11-20-ka-next-phase.md`. Owner's calls:
+
+- Login is always on (no flag): one account, created as the first step of onboarding; server-side sessions in an HttpOnly cookie, 14-day sliding expiry, 30-day maximum; lockout after 5 wrong passwords. Every SQLite row carries `user_id`.
+- Everything personal lives under `users/<user_id>/` in the data repo (YAML, memory files, `settings.yaml` with the Drive folder and Sheet ids, `local/`). Generic configuration (models, flags, the OAuth client file) stays in `config.yaml`. The first account claims an existing root-layout repo in one commit.
+- Toolkits are part of the system (no flag): core always loaded, finance and movies loaded on demand with `load_toolkit`; one memory file per toolkit next to `memory/core.yaml`.
+- Flags for new features: `tracing`, `web_search`, `movies`, `loops`, all checked through `server/flags.py`; unknown flag names stop startup.
+- Risky tools: a yes/no card in a live chat; in a loop, a `tool_write` card in Pending. Untrusted content blocks risky tools for the rest of the turn.
+- Web search: Exa, then Brave, then Firecrawl; page reading Exa, Firecrawl, then a plain GET. Personal queries are refused in finance chats.
+- Model tiers by task (`chat`, `small`, `grader`), OpenRouter fallbacks and prompt caching through config; tracing with plain OpenTelemetry to self-hosted Langfuse.
+- Loops: one runner with limits (300 s, 20 model calls, 30 tool calls, $0.50), shadow mode by default, write keys, watchdog alerts, one stop switch. Statement import is the first loop.
+- No commits during the build; the owner reviews and commits. Live evals, Langfuse and the TMDB terms check happen after the build (`Docs/post-build-setup.md`).

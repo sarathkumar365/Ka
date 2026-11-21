@@ -4,9 +4,8 @@ from dataclasses import asdict
 
 from pydantic import Field
 
+from server.agent.tools.registry import ToolContext, ToolError, tool
 from server.integrations.data_repo.schemas.common import KaModel
-
-from .registry import ToolContext, ToolError, tool
 
 
 class ConversationSearchArgs(KaModel):
@@ -18,6 +17,7 @@ class ConversationSearchArgs(KaModel):
     "search_conversations",
     "Keyword search across past chats with the owner. Returns snippets with conversation ids.",
     ConversationSearchArgs,
+    activity="Searched past chats",
 )
 def search_conversations(args: ConversationSearchArgs, ctx: ToolContext):
     if ctx.db is None:

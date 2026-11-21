@@ -14,11 +14,11 @@ from .pending import PendingError, queue_memory
 log = logging.getLogger(__name__)
 
 FINANCE_TOOLS = {
-    "search_transactions",
-    "sum_transactions",
+    "finance_search_transactions",
+    "finance_sum_transactions",
     "finance_summary",
-    "list_statements",
-    "import_statement",
+    "finance_list_statements",
+    "finance_import_statement",
 }
 TRIM = 500
 TYPES = {"fact", "preference", "rule"}

@@ -22,7 +22,7 @@ GOOD = json.dumps(
 @pytest.fixture
 def setup(ctx, tmp_path):
     cfg: Config = ctx.config
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     resume = tmp_path / "resume.txt"
     resume.write_text("Avery Quinn. Globex Corp, Engineer, 2024-02 to now.")
     return cfg, db, resume

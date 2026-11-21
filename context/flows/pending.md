@@ -23,3 +23,5 @@ The screen shows one card at a time, as in the design: all cards sit in one grid
 Source: `server/api/pending.py`, `ui/src/features/pending/*`. Terminal flow: [review-pending.md](review-pending.md)
 
 Interview questions: [pending.interview.md](interview/pending.interview.md)
+
+**Loop cards.** `tool_write` (a change a loop wants: tool, summary, diff; approve re-runs the tool and applies it) and `alert` (a stopped run, a missed check-in, a card waiting too long; approve or reject dismisses it). Both come from `server/loops`; see `loops.md`.

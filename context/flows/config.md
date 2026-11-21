@@ -17,7 +17,11 @@ flowchart LR
 
 `ka serve` first calls `load_env()` (`server/env.py`): each `KEY=value` line of `.env` goes into `os.environ`, and the file wins over a variable already exported in the shell, because a stale exported key would otherwise silently beat the one the owner just put in `.env`. `load_config` (`server/config.py`) then picks `config.yaml` in the working folder, or the path in `KA_CONFIG` (tests and smoke runs point this at scratch copies so the real data repo is never touched). Validation is strict: `data_repo` is expanded from `~`; a model with `zdr` or `only` must be an OpenRouter model; every `private_models` entry must be Ollama or OpenRouter with `zdr: true`, so money questions can never be routed to a provider that keeps data. The derived properties (`db_path`, `finance_dir`, `statements_dir`, `google_dir`, `denylist_path`) all sit under `data_repo/local`, which the data repo git-ignores. `build_adapter` reads the provider's key from the environment at call time and fails with `OPENAI_API_KEY not set` (or the OpenRouter equivalent) instead of sending an empty key.
 
-Feature flags are plain booleans in `flags`; a missing flag means off, and every in-progress feature checks its flag (`cfg.flags.get("intake")` and so on). Settings shows the known flags read-only; they are changed only in the file.
+Feature flags are plain booleans in `flags`; a missing flag means off, unknown names are rejected, and every check goes through `server.flags.is_on` (see `flags.md`). Settings shows the known flags read-only; they are changed only in the file. API keys are listed by name in `.env.example`.
+
+## Model tiers
+
+`Config.model_for(task)` picks a model by task type, not by another model: `chat` is `models.default`, `small` (nightly extraction, page summaries) and `grader` (eval judge) fall back to the default when not set. Finance chats and category suggestions keep using the private chain, because they carry finance data. OpenRouter-only options on a model: `zdr`, `only`, `fallbacks` (sent as the `models` list, so OpenRouter tries backups in order), `cache` (the system prompt becomes a text part with `cache_control: ephemeral`) and `reasoning` (`low|medium|high` thinking effort, e.g. on the private finance model). The adapter reads `usage.cost` and `prompt_tokens_details.cached_tokens` into `Usage`, and tracing records them.
 
 ## Why this way
 

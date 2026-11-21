@@ -18,11 +18,15 @@ class ModelConfig(BaseModel):
     base_url: str | None = None
     zdr: bool = False  # OpenRouter only: route to zero-data-retention providers
     only: list[str] = []  # OpenRouter only: allowed provider slugs, e.g. ["amazon-bedrock"]
+    fallbacks: list[str] = []  # OpenRouter only: backup model ids, tried in order
+    cache: bool = False  # mark the system prompt for prompt caching (Anthropic via OpenRouter)
+    reasoning: Literal["low", "medium", "high"] | None = None  # thinking effort, when supported
 
     @model_validator(mode="after")
     def _zdr_needs_openrouter(self):
-        if (self.zdr or self.only) and self.provider != "openrouter":
-            raise ValueError("zdr and only are OpenRouter options; use provider openrouter")
+        routed = self.zdr or self.only or self.fallbacks or self.cache or self.reasoning
+        if routed and self.provider != "openrouter":
+            raise ValueError("zdr, only, fallbacks, cache and reasoning are OpenRouter options")
         return self
 
 
@@ -30,8 +34,10 @@ class GoogleConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     client_file: Path  # OAuth desktop client JSON; used in place, never copied
-    drive_folder_id: str
-    sheet_id: str
+    # Personal: read from users/<id>/settings.yaml. Still accepted here so an older config loads;
+    # account setup copies them into the user's settings.
+    drive_folder_id: str | None = None
+    sheet_id: str | None = None
 
     @field_validator("client_file")
     @classmethod
@@ -48,6 +54,20 @@ class Config(BaseModel):
     private_models: list[ModelConfig] = []  # tried in order for finance conversations
     google: GoogleConfig | None = None
     ui_hosts: list[str] = []
+    # Set by server.users.user_config: data_repo then points at users/<user_id> and repo_root at
+    # the shared data repo, which holds the database and the denylist.
+    user_id: str = ""
+    repo_root: Path | None = None
+
+    @field_validator("flags")
+    @classmethod
+    def _known_flags(cls, v: dict[str, bool]) -> dict[str, bool]:
+        from server.flags import FLAGS
+
+        unknown = sorted(set(v) - set(FLAGS))
+        if unknown:
+            raise ValueError(f"unknown flags: {', '.join(unknown)}")
+        return v
 
     @field_validator("private_models")
     @classmethod
@@ -62,6 +82,15 @@ class Config(BaseModel):
     def _expand(cls, v: Path) -> Path:
         return v.expanduser()
 
+    def model_for(self, task: Literal["chat", "small", "grader"]) -> ModelConfig:
+        """Cheapest model that passes its evals, by task: chat (default), small, grader."""
+        key = "default" if task == "chat" else task
+        if key in self.models:
+            return self.models[key]
+        if "default" not in self.models:
+            raise ConfigError("no models.default in config.yaml")
+        return self.models["default"]
+
     @property
     def statements_dir(self) -> Path:
         return self.data_repo / "local" / "statements"
@@ -72,7 +101,7 @@ class Config(BaseModel):
 
     @property
     def db_path(self) -> Path:
-        return self.data_repo / "local" / "ka.db"
+        return (self.repo_root or self.data_repo) / "local" / "ka.db"
 
     @property
     def google_dir(self) -> Path:
@@ -80,7 +109,11 @@ class Config(BaseModel):
 
     @property
     def denylist_path(self) -> Path:
-        return self.data_repo / "local" / "denylist.txt"
+        return (self.repo_root or self.data_repo) / "local" / "denylist.txt"
+
+    @property
+    def intake_dir(self) -> Path:
+        return self.data_repo / "local" / "intake"
 
 
 def load_config(path: Path | None = None) -> Config:

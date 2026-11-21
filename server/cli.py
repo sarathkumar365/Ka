@@ -11,6 +11,7 @@ from server.finance.importer import ImportFailed, commit_import, prepare_import
 from server.finance.parser import StatementFormatError
 from server.finance.statements import list_statement_files
 from server.finance.store import CsvFinanceStore
+from server.flags import is_on
 from server.intake.approve import approve_bundle, reject_bundle
 from server.integrations.data_repo.loader import DataRepoError, load_data
 from server.memory.extract import extract_memories
@@ -20,8 +21,27 @@ from server.store.db import Db
 CHECKS_RUN = 4
 
 
+_USER: str | None = None  # --user; default: the only account
+
+
+def _cfg():
+    """The config as seen by the account the command runs for."""
+    from server.store.db import Db
+    from server.users import only_user, user_config
+
+    base = load_config()
+    return user_config(base, _USER or base.user_id or only_user(Db.system(base.db_path)))
+
+
 def _check(_args: argparse.Namespace) -> int:
-    load_data(load_config().data_repo)
+    from server.users import UserError
+
+    try:
+        cfg = _cfg()
+    except UserError as e:  # a fresh install: config is valid, the data comes with the account
+        print(f"ok: config valid; {e}")
+        return 0
+    load_data(cfg.data_repo)
     print("ok: 11 files")
     return 0
 
@@ -34,8 +54,8 @@ def _confirm(question: str) -> bool:
 
 
 def _import(args: argparse.Namespace) -> int:
-    cfg = load_config()
-    store = CsvFinanceStore(cfg.finance_dir)
+    cfg = _cfg()
+    store = CsvFinanceStore(cfg.finance_dir, cfg.user_id)
     p = prepare_import(Path(args.path).expanduser(), load_data(cfg.data_repo), store)
     s = p.statement
     print(f"account {s.account}  period {s.period_start} to {s.period_end}")
@@ -61,9 +81,9 @@ def _import(args: argparse.Namespace) -> int:
         print("declined, nothing written")
         return 0
     print(f"written: {commit_import(p, store)} rows")
-    if cfg.flags.get("google"):
+    if is_on(cfg, "google"):
         print("sheet: copied" if _push_sheet(cfg) else "sheet: not copied (see ka google status)")
-    if cfg.flags.get("category_suggestions"):
+    if is_on(cfg, "category_suggestions"):
         _queue_suggestions(cfg, store, p.unknown_merchants, p.unknown_types)
     return 0
 
@@ -77,7 +97,7 @@ def _queue_suggestions(cfg, store, merchants: list[str], types: list[str]) -> in
     )
 
     load_env()
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     merchants = not_pending(db, merchants)
     if not merchants and not types:
         print("nothing to suggest")
@@ -98,11 +118,11 @@ def _queue_suggestions(cfg, store, merchants: list[str], types: list[str]) -> in
 def _suggest(_args: argparse.Namespace) -> int:
     from server.finance.suggest import uncategorised
 
-    cfg = load_config()
-    if not cfg.flags.get("category_suggestions"):
+    cfg = _cfg()
+    if not is_on(cfg, "category_suggestions"):
         print("error: flag category_suggestions is off in config.yaml")
         return 2
-    store = CsvFinanceStore(cfg.finance_dir)
+    store = CsvFinanceStore(cfg.finance_dir, cfg.user_id)
     return _queue_suggestions(cfg, store, uncategorised(store), [])
 
 
@@ -113,8 +133,8 @@ def _push_sheet(cfg) -> bool:
 
 
 def _sheet(_args: argparse.Namespace) -> int:
-    cfg = load_config()
-    if not cfg.flags.get("google"):
+    cfg = _cfg()
+    if not is_on(cfg, "google"):
         print("error: flag google is off in config.yaml")
         return 2
     ok = _push_sheet(cfg)
@@ -141,8 +161,8 @@ def _google_probe(cfg, auth) -> int:
 def _google(args: argparse.Namespace) -> int:
     from server.integrations.google.oauth import GoogleAuthError, auth_for
 
-    cfg = load_config()
-    if not cfg.flags.get("google"):
+    cfg = _cfg()
+    if not is_on(cfg, "google"):
         print("error: flag google is off in config.yaml")
         return 2
     try:
@@ -153,7 +173,7 @@ def _google(args: argparse.Namespace) -> int:
             return _google_probe(cfg, auth)
         email = auth.email()
         if email:
-            Db(cfg.db_path).set_state("google_email", email)
+            Db(cfg.db_path, cfg.user_id).set_state("google_email", email)
         print(f"connected: {email or 'yes'}" if auth.connected() else "not connected")
     except GoogleAuthError as e:
         print(f"error: {e}")
@@ -162,15 +182,15 @@ def _google(args: argparse.Namespace) -> int:
 
 
 def _statements(_args: argparse.Namespace) -> int:
-    cfg = load_config()
-    for f in list_statement_files(cfg, CsvFinanceStore(cfg.finance_dir)):
+    cfg = _cfg()
+    for f in list_statement_files(cfg, CsvFinanceStore(cfg.finance_dir, cfg.user_id)):
         print(f"{'imported' if f.imported else 'new':9}{f.name}")
     return 0
 
 
 def _private_adapter(cfg):
     """The private model chain when routing is on; raises ConfigError if it cannot be built."""
-    if not cfg.flags.get("private_routing"):
+    if not is_on(cfg, "private_routing"):
         return None
     if not cfg.private_models:
         raise ConfigError("flag private_routing is on but private_models is empty in config.yaml")
@@ -182,7 +202,7 @@ def _private_adapter(cfg):
 
 def _chat(args: argparse.Namespace) -> int:
     load_env()
-    cfg = load_config()
+    cfg = _cfg()
     which = "local" if args.local else "default"
     if which not in cfg.models:
         print(f"error: no models.{which} in config.yaml")
@@ -192,7 +212,16 @@ def _chat(args: argparse.Namespace) -> int:
     except ConfigError as e:
         print(f"error: {e}")
         return 2
-    chat_loop(cfg, build_adapter(cfg.models[which]), resume=args.resume, private_adapter=private)
+    from server.tracing import TracedAdapter, setup_tracing, shutdown_tracing
+
+    adapter = build_adapter(cfg.models[which])
+    if setup_tracing(cfg):
+        adapter = TracedAdapter(adapter, "chat")
+        private = TracedAdapter(private, "private") if private else None
+    try:
+        chat_loop(cfg, adapter, resume=args.resume, private_adapter=private)
+    finally:
+        shutdown_tracing()
     return 0
 
 
@@ -203,7 +232,7 @@ def _serve(args: argparse.Namespace) -> int:
 
     load_env()
     cfg = load_config()
-    if not cfg.flags.get("web_ui"):
+    if not is_on(cfg, "web_ui"):
         print("error: flag web_ui is off in config.yaml")
         return 2
     if "default" not in cfg.models:
@@ -221,6 +250,7 @@ def _serve(args: argparse.Namespace) -> int:
         lambda: build_adapter(model),
         start_scheduler=True,
         private_factory=(lambda: build_private_adapter(cfg)) if private else None,
+        small_factory=lambda: build_adapter(cfg.model_for("small")),
     )
     uvicorn.run(app, host="127.0.0.1", port=args.port)
     return 0
@@ -233,8 +263,8 @@ def _intake(args: argparse.Namespace) -> int:
     from server.intake.runner import run_documents_job, run_memory_job
 
     load_env()
-    cfg = load_config()
-    if not cfg.flags.get("intake"):
+    cfg = _cfg()
+    if not is_on(cfg, "intake"):
         print("error: flag intake is off in config.yaml")
         return 2
     if "default" not in cfg.models:
@@ -244,7 +274,7 @@ def _intake(args: argparse.Namespace) -> int:
         print("error: give document files, or --memory FILE")
         return 2
     adapter = build_adapter(cfg.models["default"])
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     if db.running_intake_job():
         print("error: another intake job is running")
         return 1
@@ -286,8 +316,8 @@ def _intake(args: argparse.Namespace) -> int:
 
 def _extract(args: argparse.Namespace) -> int:
     load_env()
-    cfg = load_config()
-    if not cfg.flags.get("nightly_extraction"):
+    cfg = _cfg()
+    if not is_on(cfg, "nightly_extraction"):
         print("error: flag nightly_extraction is off in config.yaml")
         return 2
     which = "local" if args.local else "default"
@@ -298,9 +328,9 @@ def _extract(args: argparse.Namespace) -> int:
     try:
         n = extract_memories(
             day,
-            Db(cfg.db_path),
+            Db(cfg.db_path, cfg.user_id),
             load_data(cfg.data_repo),
-            build_adapter(cfg.models[which]),
+            build_adapter(cfg.models["local"] if args.local else cfg.model_for("small")),
             datetime.now(),
             private_adapter=_private_adapter(cfg),
         )
@@ -312,8 +342,8 @@ def _extract(args: argparse.Namespace) -> int:
 
 
 def _pending(args: argparse.Namespace) -> int:
-    cfg = load_config()
-    db = Db(cfg.db_path)
+    cfg = _cfg()
+    db = Db(cfg.db_path, cfg.user_id)
     if args.action is None:
         old = {e.id: e.text for e in load_data(cfg.data_repo).memory.entries}
         for item in db.list_pending():
@@ -327,7 +357,9 @@ def _pending(args: argparse.Namespace) -> int:
                     print(f"       - {it['label']}  ({it['detail']})")
                 continue
             if item.kind == "statement":  # Drive imports are decided in the web Pending screen
-                print(f"{item.id:>3}  [statement] {p['file']}, {p['account']}, {p['rows']} rows (approve in the app)")
+                print(
+                    f"{item.id:>3}  [statement] {p['file']}, {p['account']}, {p['rows']} rows (approve in the app)"
+                )
                 continue
             print(f"{item.id:>3}  [{p['type']}] {p['text']}")
             if p.get("replaces"):
@@ -335,8 +367,12 @@ def _pending(args: argparse.Namespace) -> int:
         return 0
     try:
         item = db.get_pending(args.id)
-        if item is not None and item.kind == "statement":  # the app's reject also removes the downloaded PDF
-            raise PendingError("statement cards are approved or rejected in the app's Pending screen")
+        if (
+            item is not None and item.kind == "statement"
+        ):  # the app's reject also removes the downloaded PDF
+            raise PendingError(
+                "statement cards are approved or rejected in the app's Pending screen"
+            )
         bundle = item is not None and item.kind == "bundle"
         if args.action == "approve":
             if bundle:
@@ -347,7 +383,7 @@ def _pending(args: argparse.Namespace) -> int:
                         cfg.data_repo,
                         db,
                         date.today(),
-                        CsvFinanceStore(cfg.finance_dir),
+                        CsvFinanceStore(cfg.finance_dir, cfg.user_id),
                     )
                 )
             else:
@@ -361,8 +397,46 @@ def _pending(args: argparse.Namespace) -> int:
     return 0
 
 
+def _loops(args: argparse.Namespace) -> int:
+    from server.loops.runner import PAUSED
+    from server.loops.tasks import TaskStore
+    from server.store.db import Db
+
+    cfg = _cfg()
+    db = Db(cfg.db_path, cfg.user_id)
+    store = TaskStore(db)
+    if args.action in ("pause", "resume"):
+        db.set_state(PAUSED, "1" if args.action == "pause" else "0")
+        print("all loops paused" if args.action == "pause" else "loops resumed")
+        return 0
+    if args.action == "run":
+        if not args.id or store.get(args.id) is None:
+            print("error: give a task id from ka loops list")
+            return 2
+        from server.loops.service import execute
+
+        load_env()
+        private = (lambda: build_private_adapter(cfg)) if cfg.private_models else None
+        execute(
+            load_config(), cfg.user_id, args.id, lambda: build_adapter(cfg.model_for("chat")), private
+        )
+        run = store.runs(args.id, 1)[0]
+        print(f"{run.status} {run.reason} {run.result}")
+        return 0
+    paused = db.get_state(PAUSED) == "1"
+    print(
+        f"loops {'paused' if paused else 'running'}; flag {'on' if is_on(cfg, 'loops') else 'off'}"
+    )
+    for t in store.all():
+        last = store.runs(t.id, 1)
+        tail = f"{last[0].status} at {last[0].started_at[:16]}" if last else "never run"
+        print(f"{t.id}  {t.status:<6} {t.mode:<6} {t.name}  ({tail})")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ka")
+    parser.add_argument("--user", help="account to act as (default: the only one)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("check", help="validate the data repo").set_defaults(func=_check)
     imp = sub.add_parser("import", help="import a statement PDF")
@@ -403,12 +477,24 @@ def main(argv: list[str] | None = None) -> int:
     pend.add_argument("action", nargs="?", choices=["approve", "reject"])
     pend.add_argument("id", nargs="?", type=int)
     pend.set_defaults(func=_pending)
+    loops = sub.add_parser("loops", help="list scheduled tasks, pause or resume all, run one now")
+    loops.add_argument(
+        "action", nargs="?", choices=["list", "pause", "resume", "run"], default="list"
+    )
+    loops.add_argument("id", nargs="?")
+    loops.set_defaults(func=_loops)
     args = parser.parse_args(argv)
     if args.command == "pending" and args.action and args.id is None:
         parser.error("pending approve|reject needs an id")
+    global _USER
+    _USER = args.user
+    from server.users import UserError
+
     try:
         return args.func(args)
-    except (ConfigError, DataRepoError, ImportFailed, StatementFormatError, AdapterError) as e:
+    except (
+        ConfigError, DataRepoError, ImportFailed, StatementFormatError, AdapterError, UserError,
+    ) as e:  # fmt: skip
         print(f"error: {e}")
         return 1
 

@@ -82,7 +82,7 @@ def nightly_job(
             return  # the other run is extracting the same days
         db = None
         try:
-            db = Db(cfg.db_path)
+            db = Db(cfg.db_path, cfg.user_id)
             days = catch_up_extraction(
                 cfg, db, adapter_factory, today(), private_factory=private_factory
             )

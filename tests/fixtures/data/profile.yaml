@@ -10,3 +10,4 @@ addresses:
 links:
   - {label: site, url: "https://example.test"}
 summary: Mid-level backend engineer.
+timezone: America/Toronto

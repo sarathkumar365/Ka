@@ -75,19 +75,9 @@ say "5. Data repo at $DATA"
 if [ -d "$DATA" ]; then
   ok "exists, left as it is"
 else
-  mkdir -p "$DATA/rules" "$DATA/local"
+  mkdir -p "$DATA/local"
   cd "$DATA"
-  printf 'name: ""\n' > profile.yaml
-  printf 'entries: []\n' > education.yaml
-  printf 'domains: []\njobs: []\n' > jobs.yaml
-  printf 'rules: []\n' > guardrails.yaml
-  printf 'entries: []\n' > memory.yaml
-  printf 'accounts: []\n' > accounts.yaml
-  printf 'categories: [groceries, dining, transport, fuel, shopping, subscriptions, phone, travel, entertainment, health, fees, e_transfer, other]\n' > categories.yaml
-  printf 'rules: []\n' > rules/merchants.yaml
-  printf 'types: []\n' > rules/transaction_types.yaml
-  printf 'types: [project]\nrecords: []\n' > other.yaml
-  printf 'next: {E: 1, D: 1, H: 1, G: 1, M: 1, A: 1, R: 1, O: 1}\n' > ids.yaml
+  # Personal files are created under users/<you>/ when you make your account in onboarding.
   printf 'local/\n.DS_Store\n.ka.lock\n' > .gitignore
   touch local/denylist.txt
   git init -q
@@ -129,7 +119,7 @@ say "7. .env"
 if [ -f .env ]; then
   ok "exists, left as it is"
 else
-  printf 'OPENAI_API_KEY=\nOPENROUTER_API_KEY=\n' > .env
+  cp .env.example .env  # key names only; values are pasted by you
   chmod 600 .env
   ok "created with empty keys"
 fi

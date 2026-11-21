@@ -10,6 +10,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import Field
 from ruamel.yaml import YAML
 
 from .loader import DataRepoError, load_data
@@ -27,7 +28,7 @@ LISTS = {
     "job": ("jobs.yaml", "jobs", "", 0),
     "highlight": ("jobs.yaml", "jobs", "H", 3),
     "guardrail": ("guardrails.yaml", "rules", "G", 2),
-    "memory": ("memory.yaml", "entries", "M", 4),
+    "memory": ("memory/core.yaml", "entries", "M", 4),
     "account": ("accounts.yaml", "accounts", "A", 2),
     "merchant_rule": ("rules/merchants.yaml", "rules", "R", 3),
     "other_record": ("other.yaml", "records", "O", 3),
@@ -51,6 +52,7 @@ class Patch(KaModel):
     op: Literal["add", "update", "retire", "delete"]
     key: str | None = None  # record id; job key "Company|start"; omitted for add and profile
     parent: str | None = None  # job key, required when adding a highlight
+    scope: str = Field(default="core", pattern=r"^[a-z]+$")  # memory file: memory/<scope>.yaml
     fields: dict[str, Any] = {}
 
 
@@ -136,6 +138,10 @@ def _edit(ed: _Editor, p: Patch) -> str:
         return "profile"
 
     path, list_key, prefix, width = LISTS[p.target]
+    if p.target == "memory":
+        path = f"memory/{p.scope}.yaml"
+        if not (ed.root / path).is_file():
+            raise ChangeError(f"no memory file for {p.scope}")
     doc = ed.doc(path)
     if doc is None:
         raise ChangeError(f"{path} is empty; add its structure by hand first")

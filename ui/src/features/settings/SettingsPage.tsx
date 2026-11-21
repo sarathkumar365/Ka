@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, keys } from '../../lib/api'
@@ -13,8 +13,12 @@ const FLAGS: Record<string, [string, string]> = {
   private_routing: ['Private model for money', 'Questions about money go to a private model.'],
   nightly_extraction: ['Suggest facts and rules', 'Ka proposes what it notices. You still approve each one.'],
   category_suggestions: ['Category suggestions', 'Ka suggests a category for new transactions.'],
+  web_search: ['Web search', 'Ka can search the web and read pages.'],
+  movies: ['Movies', 'Taste, new releases and where to watch in Canada.'],
+  loops: ['Loops', 'Scheduled tasks Ka runs on its own.'],
+  tracing: ['Tracing', 'Every chat recorded in your local Langfuse.'],
 }
-const ROLES: Record<string, string> = { default: 'Answers' }
+const ROLES: Record<string, string> = { default: 'Answers', small: 'Background sorting', grader: 'Eval grader' }
 
 function Switch({ on, label, onClick }: { on: boolean; label: string; onClick?: () => void }) {
   // without onClick the switch only shows the state: flags are set in config.yaml
@@ -42,6 +46,31 @@ function Model({ label, value }: { label: string; value: string }) {
         <option>{value}</option>
       </select>
     </label>
+  )
+}
+
+/** One switch that pauses every scheduled task at once. */
+function LoopsSwitch({ paused }: { paused: boolean }) {
+  const qc = useQueryClient()
+  const set = useMutation({
+    mutationFn: (p: boolean) => api.setLoopsPaused(p),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.settings }),
+  })
+  return (
+    <section>
+      <h2>Loops</h2>
+      <div className="srow">
+        <div className="stext">
+          <span>Pause all loops</span>
+          <span>Stops every scheduled task until you switch it back.</span>
+        </div>
+        <Switch on={paused} label="Pause all loops" onClick={() => set.mutate(!paused)} />
+      </div>
+      <Link className="morerow" to="/loops">
+        <span>Scheduled tasks</span>
+        <Icon name="chevron" />
+      </Link>
+    </section>
   )
 }
 
@@ -84,6 +113,7 @@ export function SettingsPage() {
           )
         })}
       </section>
+      {data?.flags.loops && <LoopsSwitch paused={data.loops_paused} />}
       <section>
         <h2>Appearance</h2>
         <div className="srow">
@@ -106,6 +136,9 @@ export function SettingsPage() {
             <Icon name="chevron" />
           </Link>
         )}
+        <button className="morerow" type="button" onClick={() => api.logout().then(() => window.location.assign('/login'))}>
+          <span>Sign out</span>
+        </button>
       </section>
     </div>
   )

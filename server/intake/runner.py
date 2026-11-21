@@ -114,7 +114,7 @@ def run_documents_job(
     adapter: Adapter,
     now: Callable[[], datetime] = datetime.now,
 ) -> None:
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     try:
         db.update_intake_job(job_id, status="running", step="Starting")
         data = load_data(cfg.data_repo)
@@ -146,7 +146,7 @@ def run_memory_job(
     now: Callable[[], datetime] = datetime.now,
 ) -> None:
     """One job for every pasted export: each source in turn; one failing source is a warning."""
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     try:
         data = load_data(cfg.data_repo)
         cards, warnings = _memory(sources, db, data, adapter, now, job_id)
@@ -173,7 +173,7 @@ def run_onboarding_job(
 ) -> None:
     """Everything from the onboarding screen in one go: basics, documents, then each memory
     export. A part that fails is a warning; the job fails only when nothing was produced."""
-    db = Db(cfg.db_path)
+    db = Db(cfg.db_path, cfg.user_id)
     # One entry per thing the owner gave, in send order; the screen draws one ring arc each.
     parts = (
         ([{"label": "Basics", "state": "waiting"}] if basics is not None else [])
