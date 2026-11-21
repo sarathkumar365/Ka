@@ -46,7 +46,10 @@ def status(request: Request):
     db = _sysdb(request)
     try:
         user = resolve(db, request.cookies.get(COOKIE), now())
-        return {"setup_needed": user_count(db) == 0, "user": user}
+        return {
+            "setup_needed": user_count(db) == 0, "user": user, "min_password": MIN_PASSWORD,
+            "username_rule": USERNAME.pattern,
+        }
     finally:
         db.conn.close()
 

@@ -18,7 +18,7 @@ export function Shell() {
     refetchOnWindowFocus: false,
   })
   if (isLoading || !auth) return null
-  if (!auth.user) return auth.setup_needed ? <SetupStep /> : <Navigate to="/login" replace />
+  if (!auth.user) return auth.setup_needed ? <SetupStep rules={auth} /> : <Navigate to="/login" replace />
   return <SignedIn />
 }
 

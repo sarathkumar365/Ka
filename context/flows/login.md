@@ -22,7 +22,7 @@ Each later request passes `require_session` (`server/auth/middleware.py`): `reso
 
 ## In the UI
 
-`Shell` asks `/api/auth/status` first: no account yet shows `SetupStep` (the first onboarding step), signed out goes to `/login` (`ui/src/features/auth/LoginPage.tsx`). Any 401 from `lib/api.ts` or the chat stream calls `onUnauthorized` (`ui/src/features/auth/session.ts`): it saves the current path and the composer's unsent text in `sessionStorage`, shows the login screen, and after sign-in returns to that path with the text back in the composer. Settings has Sign out.
+`Shell` asks `/api/auth/status` first: no account yet shows `SetupStep` (step 1 of 6 of onboarding; the onboarding page shows steps 2 to 6), signed out goes to `/login` (`ui/src/features/auth/LoginPage.tsx`). Both screens share `AuthFrame.tsx`: the app's own header and screen frame with an onboarding page in it, so nothing moves when the signed-in app takes over; on phones the button sits at the bottom. The button is never disabled: a send with bad input shows why, and the message clears on the next keystroke. The password minimum and username pattern come from `/api/auth/status` (`min_password`, `username_rule`), so the form uses the server's rules. `/login` with no account yet goes to `/chat`, where the Shell shows account setup. Any 401 from `lib/api.ts` or the chat stream calls `onUnauthorized` (`ui/src/features/auth/session.ts`): it saves the current path and the composer's unsent text in `sessionStorage`, shows the login screen, and after sign-in returns to that path with the text back in the composer. Settings has Sign out.
 
 ## Why this way
 

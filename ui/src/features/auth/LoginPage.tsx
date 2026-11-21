@@ -1,10 +1,12 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { api, keys } from '../../lib/api'
+import { AuthFrame } from './AuthFrame'
 import { takeReturn } from './session'
 
-/** Plain login form; after signing in the owner goes back to where the session ended. */
+/** Login form; after signing in the owner goes back to where the session ended. With no account
+ * yet there is nothing to sign in to, so it hands over to the Shell, which shows account setup. */
 export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -12,8 +14,13 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const nav = useNavigate()
   const qc = useQueryClient()
+  const { data: auth } = useQuery({ queryKey: keys.auth, queryFn: api.authStatus, retry: false })
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!username.trim() || !password) {
+      setError('Enter your username and password.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -26,26 +33,38 @@ export function LoginPage() {
       setBusy(false)
     }
   }
+  if (auth?.setup_needed) return <Navigate to="/chat" replace />
   return (
-    <form className="col page login" onSubmit={submit} aria-label="Sign in">
-      <h1>Sign in to Ka</h1>
-      <label>
+    <AuthFrame
+      label="Sign in"
+      title="Welcome back"
+      lead="Sign in to pick up where you left off."
+      error={error}
+      busy={busy}
+      submit="Sign in"
+      onSubmit={submit}
+    >
+      <label className="field">
         <span>Username</span>
-        <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
-      </label>
-      <label>
-        <span>Password</span>
         <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value)
+            setError(null)
+          }}
         />
       </label>
-      {error && <p role="alert">{error}</p>}
-      <button className="outline-btn" type="submit" disabled={busy || !username || !password}>
-        Sign in
-      </button>
-    </form>
+      <label className="field">
+        <span>Password</span>
+        <input type="password" autoComplete="current-password" value={password} onChange={(e) => {
+            setPassword(e.target.value)
+            setError(null)
+          }} />
+      </label>
+    </AuthFrame>
   )
 }

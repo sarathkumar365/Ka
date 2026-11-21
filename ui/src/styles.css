@@ -261,3 +261,19 @@ button.next { height: 44px; padding: 0 20px; border: 0; border-radius: 10px; bac
 .ka-ring-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
 .page.arrive { animation: ka-fade .25s ease both; }
 @keyframes ka-fade { from { opacity: 0; } }
+
+/* sign-in and account creation: the onboarding page inside the app frame, before sign-in */
+:root, [data-theme="dark"] { --err:#F0A08C; }
+[data-theme="light"] { --err:#B3402A; }
+.wordmark { display: inline-flex; align-items: center; }
+.auth { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+.auth .step { gap: 18px; }
+.field .hint { font-size: 13px; color: var(--t3); transition: color 200ms ease; }
+.field .hint[data-ok="true"] { color: var(--sage); }
+.formerr { margin: 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--err) 12%, transparent); color: var(--err); font-size: 14px; }
+.auth button.primary { align-self: flex-start; }
+.auth button.primary:disabled { opacity: .6; }
+@media (max-width: 600px) {
+  .auth { min-height: 100%; }
+  .auth button.primary { align-self: stretch; height: 48px; margin-top: auto; font-size: 16px; } /* thumb reach on phones */
+}

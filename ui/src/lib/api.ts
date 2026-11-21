@@ -10,6 +10,25 @@ export class ApiError extends Error {
   }
 }
 
+/** FastAPI sends `detail` as text, or for a failed body check as a list of `{msg}` items. */
+export function detailText(body: unknown, fallback: string): string {
+  const d = (body as { detail?: unknown } | null)?.detail
+  if (typeof d === 'string') return d
+  if (Array.isArray(d) && d.length) {
+    const msg = (d[0] as { msg?: unknown }).msg
+    if (typeof msg === 'string') return msg.replace(/^Value error, /, '')
+  }
+  return fallback
+}
+
+async function readDetail(res: Response): Promise<string> {
+  try {
+    return detailText(await res.json(), res.statusText)
+  } catch {
+    return res.statusText
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
@@ -17,13 +36,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (res.status === 401 && !path.startsWith('/auth/')) onUnauthorized()
   if (!res.ok) {
-    let detail = res.statusText
-    try {
-      detail = (await res.json()).detail ?? detail
-    } catch {
-      /* keep statusText */
-    }
-    throw new ApiError(res.status, String(detail))
+    throw new ApiError(res.status, await readDetail(res))
   }
   return res.json() as Promise<T>
 }
@@ -92,7 +105,7 @@ export type AlertRow = {
   created_at: string
 }
 export type PendingRow = MemoryRow | BundleRow | StatementRow | ToolWriteRow | AlertRow
-export type AuthStatus = { setup_needed: boolean; user: string | null }
+export type AuthStatus = { setup_needed: boolean; user: string | null; min_password: number; username_rule: string }
 export type TaskRun = {
   id: number
   task_id: string
@@ -202,13 +215,7 @@ export const api = {
     const res = await fetch('/api/intake/onboarding', { method: 'POST', body: form })
     if (res.status === 401) onUnauthorized()
     if (!res.ok) {
-      let detail = res.statusText
-      try {
-        detail = (await res.json()).detail ?? detail
-      } catch {
-        /* keep statusText */
-      }
-      throw new ApiError(res.status, String(detail))
+      throw new ApiError(res.status, await readDetail(res))
     }
     return res.json()
   },

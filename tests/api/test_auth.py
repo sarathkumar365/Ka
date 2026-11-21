@@ -36,11 +36,13 @@ def test_api_needs_a_session(make_client):
 
 
 def test_setup_once_then_closed(fresh):
-    assert fresh.get("/api/auth/status").json() == {"setup_needed": True, "user": None}
+    status = fresh.get("/api/auth/status").json()
+    assert (status["setup_needed"], status["user"], status["min_password"]) == (True, None, 10)
     r = fresh.post("/api/auth/setup", json={"username": "avery", "password": PW})
     assert r.status_code == 200 and "ka_session" in r.cookies
     assert fresh.get("/api/conversations").status_code == 200
-    assert fresh.get("/api/auth/status").json() == {"setup_needed": False, "user": "avery"}
+    status = fresh.get("/api/auth/status").json()
+    assert (status["setup_needed"], status["user"]) == (False, "avery")
     again = fresh.post("/api/auth/setup", json={"username": "blake", "password": "correct horse 2"})
     assert again.status_code == 409
 

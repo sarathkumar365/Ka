@@ -8,7 +8,9 @@ import { StepDocuments } from './StepDocuments'
 import { StepMemory } from './StepMemory'
 import { type SendPhase, StepSend } from './StepSend'
 import { StepSources } from './StepSources'
+import { Progress } from '../auth/AuthFrame'
 
+// account creation is step 1 (SetupStep); these follow it
 const LABELS = ['Basics', 'Documents', 'Sources', 'Memory', 'Send']
 
 export function OnboardingPage() {
@@ -39,17 +41,7 @@ export function OnboardingPage() {
   return (
     <div className="col page onboarding">
       {!busy && (
-        <div className="row progress" style={{ gap: 12 }}>
-          <div className="row" style={{ gap: 6 }}>
-            {LABELS.map((l, i) => (
-              <div key={l} className="dot" data-on={i <= step} data-current={i === step} />
-            ))}
-          </div>
-          <div className="steplabel" aria-live="polite">
-            Step {step + 1} of {LABELS.length}
-            <span className="vh">: {LABELS[step]}</span>
-          </div>
-        </div>
+        <Progress current={step + 1} />
       )}
       {/* steps share one grid cell and slide 40px left or right, as in the design */}
       <div className="obstack">

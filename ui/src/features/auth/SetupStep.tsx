@@ -1,10 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, keys } from '../../lib/api'
+import { api } from '../../lib/api'
+import { AuthFrame } from './AuthFrame'
+import { type Rules, setupProblem } from './rules'
 
-/** First step of onboarding when Ka has no account yet: create the one account. */
-export function SetupStep() {
+/** Step 1 of onboarding when Ka has no account yet: create the one account. */
+export function SetupStep({ rules }: { rules: Rules }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [again, setAgain] = useState('')
@@ -12,15 +14,19 @@ export function SetupStep() {
   const [busy, setBusy] = useState(false)
   const qc = useQueryClient()
   const nav = useNavigate()
-  const mismatch = again !== '' && again !== password
+  const edit = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    set(e.target.value)
+    setError(null)
+  }
+  const mismatch = again !== '' && !password.startsWith(again)
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    if (mismatch) return
+    const problem = setupProblem(rules, username, password, again)
+    setError(problem)
+    if (problem) return
     setBusy(true)
-    setError(null)
     try {
       await api.setup(username.trim(), password)
-      await qc.invalidateQueries({ queryKey: keys.auth })
       await qc.invalidateQueries()
       nav('/onboarding', { replace: true })
     } catch (err) {
@@ -30,30 +36,40 @@ export function SetupStep() {
     }
   }
   return (
-    <form className="col page setup" onSubmit={submit} aria-label="Create your account">
-      <h1>Create your account</h1>
-      <p>One account for all your devices. Your existing data moves into it.</p>
-      <label>
+    <AuthFrame
+      label="Create your account"
+      title="Welcome to Ka"
+      lead="First, an account. It keeps your data private and lets you sign in from your phone too."
+      step={0}
+      error={error}
+      busy={busy}
+      submit="Create account"
+      onSubmit={submit}
+    >
+      <label className="field">
         <span>Username</span>
-        <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} />
+        <input
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={username}
+          onChange={edit((v) => setUsername(v.toLowerCase()))}
+        />
+        <small className="hint">Letters, numbers, - or _, starting with a letter</small>
       </label>
-      <label>
-        <span>Password (10 characters or more)</span>
-        <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <label className="field">
+        <span>Password</span>
+        <input type="password" autoComplete="new-password" value={password} onChange={edit(setPassword)} />
+        <small className="hint" data-ok={password.length >= rules.min_password}>
+          {rules.min_password} characters or more
+        </small>
       </label>
-      <label>
+      <label className="field">
         <span>Password again</span>
-        <input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+        <input type="password" autoComplete="new-password" value={again} onChange={edit(setAgain)} />
+        {mismatch && <small className="hint">Does not match yet</small>}
       </label>
-      {mismatch && <p role="alert">The passwords differ.</p>}
-      {error && <p role="alert">{error}</p>}
-      <button
-        className="outline-btn"
-        type="submit"
-        disabled={busy || !username || password.length < 10 || again !== password}
-      >
-        Create account
-      </button>
-    </form>
+    </AuthFrame>
   )
 }
