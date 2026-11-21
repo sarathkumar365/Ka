@@ -3,6 +3,7 @@
 import os
 import secrets
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from google.auth.exceptions import GoogleAuthError as _LibAuthError
@@ -52,10 +53,18 @@ class GoogleUnreachable(GoogleAuthError):
     """Network trouble: the sign-in is still good, so do not ask the owner to reconnect."""
 
 
+STATE_TTL = timedelta(minutes=10)  # a sign-in started longer ago than this must start again
+MAX_STATES = 5
+
+
+def _now() -> datetime:
+    return datetime.now()
+
+
 class GoogleAuth:
     def __init__(self, cfg: GoogleConfig, token_path: Path) -> None:
         self.cfg, self.token_path = cfg, token_path
-        self._pending: dict[str, str] = {}  # web-flow state -> PKCE code verifier
+        self._pending: dict[str, tuple[str, datetime]] = {}  # state -> (PKCE verifier, created)
 
     def credentials(self) -> Credentials:
         if not self.token_path.is_file():
@@ -113,13 +122,19 @@ class GoogleAuth:
             str(self.cfg.client_file), SCOPES, redirect_uri=redirect, state=state
         )
         url, _ = flow.authorization_url(access_type="offline", prompt="consent")
-        self._pending[state] = flow.code_verifier
+        now = _now()
+        for k in [k for k, (_, t) in self._pending.items() if now - t >= STATE_TTL]:
+            del self._pending[k]
+        while len(self._pending) >= MAX_STATES:  # a page reloaded many times: keep the newest
+            del self._pending[next(iter(self._pending))]
+        self._pending[state] = (flow.code_verifier, now)
         return url
 
     def finish(self, code: str, state: str, redirect: str) -> None:
-        verifier = self._pending.pop(state, None)
-        if verifier is None:
+        entry = self._pending.pop(state, None)
+        if entry is None or _now() - entry[1] >= STATE_TTL:
             raise GoogleAuthError("sign-in expired or forged; start again")
+        verifier = entry[0]
         flow = Flow.from_client_secrets_file(
             str(self.cfg.client_file),
             SCOPES,

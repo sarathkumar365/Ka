@@ -13,9 +13,13 @@
 3. Add that hostname to `ui_hosts` in `config.yaml`; restart `ka serve`.
 4. Open the URL in Safari, Share, Add to Home Screen.
 
+## Phone layout
+
+The app fills the dynamic viewport (`100dvh`), so Safari's toolbar never hides the composer, and nothing has a minimum height, so a sideways phone fits without the whole page scrolling. Page bottoms add the home-bar inset (`--safe-b`). iOS does not shrink the layout when the keyboard opens; it slides the page and can leave it slid. `watchKeyboard` (`ui/src/lib/viewport.ts`) reads `visualViewport` and publishes the keyboard height as `--kb`, so the chat composer sits right on the keyboard, and scrolls the page back to 0 once the keyboard closes. Inputs and selects drop Safari's own styling (`appearance: none`; selects draw their own chevron), inputs stay 16 px so iOS does not zoom, and the page itself does not bounce (`overscroll-behavior`). Scrollbars are hidden on touch screens.
+
 ## Why this way
 
-- **No auth, no public bind.** The tailnet is the access control. The `Host` allow-list blocks DNS-rebinding from web pages.
+- **Tailnet plus accounts, no public bind.** The tailnet limits who can reach Ka; accounts and sessions limit what each person sees (sign-up is open to anyone on the tailnet, see [login.md](login.md)). The `Host` allow-list blocks DNS-rebinding from web pages, and writes must come from Ka's own origin.
 - **Shell-only cache.** Offline shows the app; data calls fail visibly instead of showing stale money figures.
 
 ## Not verified here
@@ -30,7 +34,7 @@ The service worker could not register in the desktop app's embedded browser, and
 | Service worker unsupported or blocked | app works without offline shell |
 | POST from another site's page (Origin not allowed) | 403 "cross-site request refused" |
 
-Source: `ui/vite.config.ts`, `ui/index.html`, `ui/scripts/make-icons.mjs`, `server/api/app.py`, `scripts/setup.sh`
+Source: `ui/vite.config.ts`, `ui/index.html`, `ui/src/lib/viewport.ts`, `ui/src/styles.css`, `ui/scripts/make-icons.mjs`, `server/api/app.py`, `scripts/setup.sh`
 
 Interview questions: [pwa.interview.md](interview/pwa.interview.md)
 

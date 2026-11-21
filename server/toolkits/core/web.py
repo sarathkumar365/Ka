@@ -1,10 +1,12 @@
 """Core web tools: search returns a few short highlights with links; fetch_page reads one page."""
 
+import json
 import re
 
 from pydantic import Field
 
-from server.agent.tools.registry import ToolContext, ToolError, tool
+from server.agent.context import conversation_read_untrusted, known_urls, norm_url
+from server.agent.tools.registry import PendingWrite, ToolContext, ToolError, to_json, tool
 from server.integrations.data_repo.schemas.common import KaModel
 from server.web.providers import MAX_RESULTS, fetch_page, web_search
 
@@ -54,6 +56,9 @@ def _summariser(ctx: ToolContext):
     except AdapterError:
         return None
 
+    if ctx.wrap_adapter is not None:
+        adapter = ctx.wrap_adapter(adapter)
+
     def summarise(text: str) -> str:
         msg = "Summarise this web page in at most 300 words. Keep facts, numbers and dates.\n\n"
         return adapter.complete([{"role": "user", "content": msg + text}], []).text or ""
@@ -86,4 +91,14 @@ def search(args: WebSearchArgs, ctx: ToolContext):
 )
 def page(args: FetchPageArgs, ctx: ToolContext):
     _refuse_personal(args.url, ctx)  # a URL can carry data out as easily as a query
+    # After outside text, a link the person never saw could be text telling Ka to send data out
+    # in a query string. Links from the person or from search results open; anything else asks.
+    history = ctx.db.messages(ctx.conversation_id) if ctx.db and ctx.conversation_id else []
+    if conversation_read_untrusted(history) and norm_url(args.url) not in known_urls(history):
+        return PendingWrite(
+            summary=f"Open {args.url}?",
+            diff=args.url,
+            apply=lambda: json.dumps(to_json(fetch_page(args.url, summarise=_summariser(ctx)))),
+            outbound=True,
+        )
     return fetch_page(args.url, summarise=_summariser(ctx))

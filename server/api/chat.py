@@ -20,6 +20,7 @@ from server.store.db import Db
 from .describe import describe_call
 
 router = APIRouter()
+MAX_TURNS = 2  # chat turns one account may run at once; each holds a worker thread
 log = logging.getLogger(__name__)
 GENERIC_ERROR = "Something went wrong."
 
@@ -58,8 +59,11 @@ def chat(body: ChatBody, request: Request):
         with state.lock:
             if body.conversation_id in state.running:
                 raise HTTPException(409, "a turn is already running in this conversation")
+            if state.turns_by_user.get(cfg.user_id, 0) >= MAX_TURNS:
+                raise HTTPException(429, "Another chat is still answering. Try again in a moment.")
             conv_id = body.conversation_id or probe.new_conversation(datetime.now())
             state.running.add(conv_id)
+            state.turns_by_user[cfg.user_id] = state.turns_by_user.get(cfg.user_id, 0) + 1
     finally:
         probe.conn.close()
 
@@ -122,7 +126,13 @@ def chat(body: ChatBody, request: Request):
             log.exception("chat turn failed")
             out.put(("error", {"message": GENERIC_ERROR}))
         finally:
-            state.running.discard(conv_id)
+            with state.lock:
+                state.running.discard(conv_id)
+                left = state.turns_by_user.get(cfg.user_id, 1) - 1
+                if left > 0:
+                    state.turns_by_user[cfg.user_id] = left
+                else:
+                    state.turns_by_user.pop(cfg.user_id, None)
             if db:
                 db.conn.close()
             out.put(("done", {}))

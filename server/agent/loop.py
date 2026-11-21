@@ -1,6 +1,7 @@
 """The agent loop: model call, tools, approval, repeat. Knows only interfaces, never a provider."""
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -17,6 +18,13 @@ from .tools import REGISTRY, PendingWrite, ToolContext, ToolError, run_tool
 
 MAX_TOOL_CALLS = 10
 BLOCKED = "blocked: untrusted content was read this turn; ask the owner to confirm in a new message"
+
+
+# remember skips approval, so only a message that starts by asking for it counts: "remember that
+# ...", "please remember ...". "I don't remember that charge" does not.
+ASKED_TO_REMEMBER = re.compile(
+    r"\s*(?:(?:please|ka|hey ka)[\s,]+)?(?:(?:can|could|will) you\s+)?remember\b", re.IGNORECASE
+)
 
 
 def wrap_untrusted(tool_name: str, payload: str) -> str:
@@ -40,11 +48,12 @@ def _execute(
         return "invalid JSON arguments"
     if not isinstance(args, dict):
         return "invalid JSON arguments: expected an object"
-    if call.name == "remember" and "remember" not in owner_text.lower():
+    if call.name == "remember" and not ASKED_TO_REMEMBER.match(owner_text):
         # remember saves with no approval and lands in the system prompt, so only an explicit ask may use it
         return "error: the owner did not ask you to remember anything; use propose_memory instead"
     emit(Event("tool_call", {"name": call.name, "args": args}))
-    with tool_span(call.name, args) as span:
+    private = lambda: ctx.db is not None and ctx.db.is_private(ctx.conversation_id)
+    with tool_span(call.name, args, private) as span:
         text = _run(call, args, ctx, approve, emit)
         span.result(text)
     return text
@@ -58,9 +67,11 @@ def _run(call: ToolCall, args: dict, ctx: ToolContext, approve, emit) -> str:
             if not approve(result):
                 return "user declined; nothing was changed"
             try:
-                return result.apply()
+                applied = result.apply()
             except ToolError as e:
                 return f"failed: {e}"
+            tool = REGISTRY.get(call.name)
+            return wrap_untrusted(call.name, applied) if tool is not None and tool.untrusted else applied
         text = json.dumps(result, default=str)
         tool = REGISTRY.get(call.name)
         return wrap_untrusted(call.name, text) if tool is not None and tool.untrusted else text
@@ -82,13 +93,14 @@ def run_turn(
     now: Callable[[], datetime] = datetime.now,
     private_adapter: Adapter | None = None,
     queue_risky: Callable[[str, dict, PendingWrite | None, bool], str] | None = None,
+    hidden: frozenset[str] = frozenset(),
 ) -> str:
     """queue_risky set means headless (a loop): no one can answer, so every risky call becomes a
     card for the owner instead of running, remember included, and nothing is blocked."""
-    with turn_span("chat turn", db.user_id, conv_id, user_text):
+    with turn_span("chat turn", db.user_id, conv_id, user_text, lambda: db.is_private(conv_id)):
         return _turn(
             user_text, conv_id, db, adapter, ctx, approve, on_event, now, private_adapter,
-            queue_risky,
+            queue_risky, hidden,
         )  # fmt: skip
 
 
@@ -97,6 +109,8 @@ def _queue(c: ToolCall, ctx: ToolContext, queue_risky, tainted: bool) -> str:
         args = json.loads(c.arguments or "{}")
     except json.JSONDecodeError:
         return "invalid JSON arguments"
+    if not isinstance(args, dict):
+        return "invalid JSON arguments: expected an object"
     tool = REGISTRY[c.name]
     proposal = None
     if tool.approval:  # build the diff now; the owner sees it on the card
@@ -104,11 +118,14 @@ def _queue(c: ToolCall, ctx: ToolContext, queue_risky, tainted: bool) -> str:
             proposal = run_tool(c.name, args, ctx)
         except ToolError as e:
             return f"error: {e}"
+        except Exception as e:  # noqa: BLE001  a broken tool must not kill a loop run
+            return f"error: {type(e).__name__}: {e}"
     return queue_risky(c.name, args, proposal, tainted)
 
 
 def _turn(
-    user_text, conv_id, db, adapter, ctx, approve, on_event, now, private_adapter, queue_risky
+    user_text, conv_id, db, adapter, ctx, approve, on_event, now, private_adapter, queue_risky,
+    hidden=frozenset(),
 ) -> str:
     ctx.db, ctx.conversation_id = db, conv_id
     if private_adapter is not None and db.is_private(conv_id):
@@ -123,7 +140,9 @@ def _turn(
     tainted = False  # per turn: the next owner message starts clean
     last = ""
     while True:
-        visible = visible_tools(ctx.config, db.loaded_toolkits(conv_id))  # load_toolkit adds more
+        visible = [  # load_toolkit adds more; a loop run hides some
+            t for t in visible_tools(ctx.config, db.loaded_toolkits(conv_id)) if t.name not in hidden
+        ]
         names = {t.name for t in visible}
         reply = adapter.complete(
             [system, *compact_history(db.messages(conv_id), start)], tool_specs(visible)

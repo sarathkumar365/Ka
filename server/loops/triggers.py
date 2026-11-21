@@ -84,7 +84,8 @@ class LoopScheduler:
         try:  # one bad stored task must never stop the others or the server from starting
             self.scheduler.add_job(
                 self.run, args=(user_id, t.id), id=job_id, replace_existing=True, coalesce=True,
-                max_instances=1, misfire_grace_time=None, **check_trigger(t.trigger), **extra,
+                max_instances=1, misfire_grace_time=None, executor="loops",
+                **check_trigger(t.trigger), **extra,
             )  # fmt: skip
         except Exception:  # noqa: BLE001
             log.warning("task %s has a bad trigger; not scheduled", t.id)

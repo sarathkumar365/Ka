@@ -21,7 +21,7 @@ export function StepMemory({ entries, onChange }: { entries: MemoryEntry[]; onCh
         </button>
       </div>
       {entries.map((e) => (
-        <div key={e.id} className="col" style={{ gap: 8 }}>
+        <div key={e.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="row" style={{ gap: 8, alignItems: 'end' }}>
             <label className="field" style={{ flex: 1 }}>
               <span>Assistant</span>

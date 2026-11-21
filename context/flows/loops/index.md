@@ -23,16 +23,23 @@ When the server starts with `loops` on, `_start_loops` (`server/api/app.py`) mak
 
 ## Agent tasks
 
-A task Ka or the person creates (`schedule_task`, risky, approved in chat; or `POST /api/loops`) runs its brief through the normal `run_turn` in a fresh conversation with only its toolkits loaded; with `private_routing` on, finance data moves it to the private chain like a chat. The loop passes `queue_risky`, so no one is asked mid-run: every risky call, `remember` included, becomes a `tool_write` card with its diff (marked `after_untrusted` when outside text was read), and approving it in Pending re-runs the tool on current data and applies it (`approve_tool_write`). `BudgetAdapter` counts every model call and its cost against the limits; tool calls are counted through the loop's events.
+A task Ka or the person creates (`schedule_task`, risky, approved in chat; or `POST /api/loops`) runs its brief through the normal `run_turn` in a fresh conversation with only its toolkits loaded; with `private_routing` on, finance data moves it to the private chain like a chat. A loop run never sees `schedule_task` or `remember` (`HEADLESS_HIDDEN`), so it cannot make more loops or write into every future prompt with no one watching. The loop passes `queue_risky`, so no one is asked mid-run: every risky call becomes a `tool_write` card with its diff (marked `after_untrusted` when outside text was read), and approving it in Pending re-runs the tool on current data and applies it only if it still proposes exactly the diff the card showed; otherwise the card is updated to the new diff for another look (`approve_tool_write`). `BudgetAdapter` counts every model call and its cost against the limits, including the page summariser's (through `ToolContext.wrap_adapter`); tool calls are counted through the loop's events.
 
 ## Limits and switches
 
-| Item | Default / where |
+Each run has hard limits (300 s, 20 model calls, 30 tool calls, $0.50), and each account at most 10 active agent loops with one run at a time, on the scheduler's own `loops` workers. **Run now** returns 202 and the screen polls the runs. Details, the stop switch and the watchdog: [limits.md](limits.md).
+
+## Routes
+
+All need a session and flag `loops`.
+
+| Route | Does |
 |---|---|
-| Run limits (`RunLimits`) | 300 s, 20 model calls, 30 tool calls, $0.50 per run; a hit stops the run with an alert |
-| Stop switch | Settings or `ka loops pause` (`app_state loops_paused`); flag `loops` off stops everything |
-| Watchdog | every 15 min: a task with no check-in for twice its interval (daily: 26 h) or a card older than 3 days raises one alert, never twice for the same key |
-| Shadow to direct | manual, per task; the loops screen shows approved and rejected card counts |
+| `GET /api/loops`, `POST /api/loops` | list; create an agent loop (at most 10 active) |
+| `PATCH /api/loops/{id}`, `DELETE /api/loops/{id}` | pause, resume or switch mode; delete (not built-ins) |
+| `GET /api/loops/{id}/runs` | that loop's runs |
+| `POST /api/loops/{id}/run` | start a run now; 202 |
+| `PUT /api/loops/paused` | the account's Pause all loops switch |
 
 ## Why this way
 
@@ -42,12 +49,7 @@ A task Ka or the person creates (`schedule_task`, risky, approved in chat; or `P
 
 ## Failure cases
 
-| Case | Result |
-|---|---|
-| Body raises | run `failed` with the exception type only; alert card |
-| Limit hit | run `stopped`, reason names the limit; alert card |
-| Stop switch on / task paused / flag off | run `skipped` with the reason |
-| Bad trigger | refused at creation by APScheduler's own trigger check (`interval` at least 15 minutes); a bad stored one is skipped, never stops the scheduler |
+A body that raises, a limit hit, the stop switch and bad triggers: see [limits.md](limits.md#failure-cases).
 
 **UI.** `/loops` (`ui/src/features/loops/*`, linked from the drawer and Settings when `loops` is on) lists tasks with their trigger, next run, last run, approval counts and a hint when a shadow task has five approvals and no rejections; it creates, pauses, deletes (not built-ins), switches shadow/direct (with a confirm), runs now and shows runs. Settings has the Pause all loops switch. Pending shows `tool_write` and `alert` cards (`ui/src/features/pending/LoopCards.tsx`).
 

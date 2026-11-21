@@ -1,10 +1,12 @@
 """Scheduled tasks for the loops screen: list, create, pause, delete, run now, the stop switch."""
 
+import threading
 from dataclasses import asdict
 from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from server.config import Config
@@ -18,6 +20,7 @@ from server.toolkits.core.schedule import ScheduleTaskArgs
 from .deps import get_cfg, get_db, get_user
 
 router = APIRouter(dependencies=[Depends(require_flag("loops"))])
+MAX_ACTIVE = 10  # agent loops per account; built-ins do not count
 
 
 class TaskPatch(BaseModel):
@@ -83,6 +86,9 @@ def create(
     if unknown:
         raise HTTPException(422, f"unknown toolkits: {', '.join(unknown)}")
     store = TaskStore(db)
+    active = [t for t in store.all() if t.kind == "agent" and t.status == "active"]
+    if len(active) >= MAX_ACTIVE:
+        raise HTTPException(409, f"You have {MAX_ACTIVE} active loops. Pause one first.")
     task = ScheduledTask(
         name=args.name, kind="agent", trigger=args.trigger, brief=args.brief,
         toolkits=args.toolkits, created_by="ui",
@@ -126,12 +132,23 @@ def run_now(
     task_id: str, request: Request, db: Db = Depends(get_db), user: str = Depends(get_user),
     _cfg: Config = Depends(get_cfg),
 ):  # fmt: skip
-    from server.loops.service import execute
+    from server.loops.service import LoopBusy, busy, execute, running_task
 
     _task(TaskStore(db), task_id)
+    if busy(user):  # one run at a time per account
+        if running_task(user) in (task_id, None):
+            raise HTTPException(409, "This loop is already running.")
+        raise HTTPException(409, "Another loop is running. Try again when it finishes.")
     state = request.app.state
-    execute(state.cfg, user, task_id, state.adapter_factory, state.private_factory)
-    return TaskStore(db).runs(task_id, 1)[0].__dict__
+
+    def run() -> None:  # a run takes up to 5 minutes: it must not hold a request thread
+        try:
+            execute(state.cfg, user, task_id, state.adapter_factory, state.private_factory)
+        except LoopBusy:
+            pass  # another run of this account started first; that one counts
+
+    threading.Thread(target=run, daemon=True, name=f"loop-{task_id}").start()
+    return JSONResponse({"started": True}, status_code=202)
 
 
 @router.put("/loops/paused")

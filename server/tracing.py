@@ -8,7 +8,7 @@ import base64
 import contextvars
 import json
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -82,14 +82,21 @@ def _tag(span, kind: str) -> None:
 
 
 @contextmanager
-def turn_span(name: str, user_id: str, conversation_id: str, input: str) -> Iterator[None]:
+def turn_span(
+    name: str, user_id: str, conversation_id: str, input: str,
+    private: Callable[[], bool] = lambda: False,
+) -> Iterator[None]:  # fmt: skip
+    """`private` is asked at the end: a chat turns private in the turn that first reads finance."""
     token = _who.set({"langfuse.user.id": user_id, "langfuse.session.id": conversation_id})
     try:
         with _tracer().start_as_current_span("turn") as span:
             _tag(span, "span")
             span.set_attribute("langfuse.trace.name", name)
-            span.set_attribute("langfuse.observation.input", _clip(input))
-            yield
+            try:
+                yield
+            finally:
+                if not private():
+                    span.set_attribute("langfuse.observation.input", _clip(input))
     finally:
         _who.reset(token)
 
@@ -97,17 +104,27 @@ def turn_span(name: str, user_id: str, conversation_id: str, input: str) -> Iter
 @dataclass
 class _ToolSpan:
     span: object
+    text: str | None = None
 
     def result(self, text: str) -> None:
-        self.span.set_attribute("langfuse.observation.output", _clip(text))
+        self.text = text
 
 
 @contextmanager
-def tool_span(name: str, args: dict) -> Iterator[_ToolSpan]:
+def tool_span(
+    name: str, args: dict, private: Callable[[], bool] = lambda: False
+) -> Iterator[_ToolSpan]:
+    """Content is attached at the end, and only if the chat is still not private by then."""
     with _tracer().start_as_current_span(f"tool:{name}") as span:
         _tag(span, "tool")
-        span.set_attribute("langfuse.observation.input", _clip(args))
-        yield _ToolSpan(span)
+        holder = _ToolSpan(span)
+        try:
+            yield holder
+        finally:
+            if not private():
+                span.set_attribute("langfuse.observation.input", _clip(args))
+                if holder.text is not None:
+                    span.set_attribute("langfuse.observation.output", _clip(holder.text))
 
 
 class TracedAdapter:
@@ -122,12 +139,13 @@ class TracedAdapter:
             _tag(span, "generation")
             span.set_attribute("gen_ai.request.model", self.model)
             span.set_attribute("langfuse.trace.metadata.task", self.task)
-            span.set_attribute("langfuse.observation.input", _clip(messages))
             reply = self.inner.complete(messages, tools)
-            out = reply.text or json.dumps(
-                [{"name": c.name, "arguments": c.arguments} for c in reply.tool_calls]
-            )
-            span.set_attribute("langfuse.observation.output", _clip(out))
+            if self.task != "private":  # private chats hold finance data: counts and timings only
+                out = reply.text or json.dumps(
+                    [{"name": c.name, "arguments": c.arguments} for c in reply.tool_calls]
+                )
+                span.set_attribute("langfuse.observation.input", _clip(messages))
+                span.set_attribute("langfuse.observation.output", _clip(out))
             u = reply.usage
             span.set_attribute("gen_ai.usage.input_tokens", u.prompt_tokens)
             span.set_attribute("gen_ai.usage.output_tokens", u.completion_tokens)

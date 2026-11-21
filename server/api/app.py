@@ -3,7 +3,6 @@
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +33,12 @@ UPLOAD_LIMIT = 5 * 10 * 1024 * 1024 + 1024 * 1024  # five files of 10 MB plus fo
 # The onboarding send also carries up to five 60k memory pastes and the basics.
 UPLOAD_PATHS = {
     "/api/intake/onboarding": UPLOAD_LIMIT + 5 * 60_000 + 64 * 1024,
+}
+SECURITY_HEADERS = {
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin",
 }
 UI_DIST = Path(__file__).resolve().parents[2] / "ui" / "dist"
 
@@ -72,9 +77,12 @@ def create_app(
     @app.middleware("http")
     async def refuse_cross_site_writes(request, call_next):
         # A page on another site can POST here with a plain fetch; browsers always send Origin.
+        # The whole origin must match, port included: another app on localhost is another site.
         origin = request.headers.get("origin")
         writes = request.method not in ("GET", "HEAD", "OPTIONS")
-        if writes and origin and urlsplit(origin).hostname not in allowed:
+        own = f"{request.url.scheme}://{request.headers.get('host', '')}"
+        tailnet = {f"https://{h}" for h in cfg.ui_hosts}
+        if writes and origin and origin.rstrip("/") not in {own, *tailnet}:
             return JSONResponse({"detail": "cross-site request refused"}, status_code=403)
         return await call_next(request)
 
@@ -88,9 +96,20 @@ def create_app(
             length = request.headers.get("content-length")
             if length is None:
                 return JSONResponse({"detail": "content-length required"}, status_code=411)
-            if int(length) > UPLOAD_PATHS[request.url.path]:
+            try:
+                size = int(length)
+            except ValueError:
+                return JSONResponse({"detail": "bad content-length"}, status_code=400)
+            if size > UPLOAD_PATHS[request.url.path]:
                 return JSONResponse({"detail": "upload is too large"}, status_code=413)
         return await call_next(request)
+
+    # Added last, so it wraps every response, including the refusals above.
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers.update(SECURITY_HEADERS)
+        return response
 
     boot = Db.system(cfg.db_path)  # create the schema once; request connections skip it
     boot.fail_interrupted_intake_jobs()  # a restart killed any running job's thread
@@ -101,7 +120,8 @@ def create_app(
     app.state.broker = ApprovalBroker()
     app.state.approval_timeout = approval_timeout
     app.state.running = set()
-    app.state.lock = threading.Lock()  # guards the running-turns set only
+    app.state.lock = threading.Lock()  # guards the running-turns set and counts
+    app.state.turns_by_user = {}  # user id -> chat turns running now
     app.state.google_auths = {}  # user_id -> GoogleAuth, see api/google.py
     app.state.limits = {}  # sign-up and login limiters, see api/auth.py
     app.state.on_user_created = lambda user_id: None  # loops add their built-in tasks here
@@ -127,7 +147,8 @@ def _jobs(cfg: Config, adapter_factory, private_factory) -> list:
     from server.finance.drive_inbox import drive_job
     from server.scheduler import ScheduledJob, nightly_job
 
-    jobs = []
+    jobs = [ScheduledJob("session_purge", {"trigger": "interval", "hours": 1},
+                         lambda: _purge_sessions(cfg))]  # fmt: skip
     if is_on(cfg, "nightly_extraction"):
         # Hourly for every account: each one catches up to its own local yesterday, so the day
         # ends in the person's time zone, not the server's. The first run is the start-up catch-up.
@@ -152,6 +173,18 @@ def _jobs(cfg: Config, adapter_factory, private_factory) -> list:
     return jobs
 
 
+def _purge_sessions(cfg: Config) -> None:
+    from datetime import datetime
+
+    from server.auth.sessions import purge_expired
+
+    db = Db.system(cfg.db_path)
+    try:
+        purge_expired(db, datetime.now())
+    finally:
+        db.conn.close()
+
+
 def _watch(ucfg: Config) -> None:
     from server.loops.service import watchdog
 
@@ -164,12 +197,12 @@ def _start_loops(app, scheduler, cfg: Config, factories) -> None:
 
     from server.loops import triggers
     from server.loops.builtin import ensure_builtin_tasks
-    from server.loops.service import execute
+    from server.loops.service import scheduled
     from server.loops.tasks import TaskStore
 
     adapter_factory, private_factory = factories
     loops = triggers.LoopScheduler(
-        scheduler, cfg, lambda user, task_id: execute(cfg, user, task_id, adapter_factory, private_factory)
+        scheduler, cfg, lambda user, task_id: scheduled(cfg, user, task_id, adapter_factory, private_factory)
     )
     triggers.ACTIVE = loops
 

@@ -23,6 +23,10 @@ Feature flags are plain booleans in `flags`; a missing flag means off, unknown n
 
 `Config.model_for(task)` picks a model by task type, not by another model: `chat` is `models.default`, `small` (nightly extraction, page summaries) and `grader` (eval judge) fall back to the default when not set. Finance chats and category suggestions keep using the private chain, because they carry finance data. OpenRouter-only options on a model: `zdr`, `only`, `fallbacks` (sent as the `models` list, so OpenRouter tries backups in order), `cache` (the system prompt becomes a text part with `cache_control: ephemeral`) and `reasoning` (`low|medium|high` thinking effort, e.g. on the private finance model). The adapter reads `usage.cost` and `prompt_tokens_details.cached_tokens` into `Usage`, and tracing records them.
 
+## Prices
+
+`prices` (model id to dollars per million input and output tokens) lets the loop cost cap count calls whose provider reports no cost (OpenAI, Ollama). A model not listed counts at the dearest listed price; with no prices the cap sees only reported costs (`estimate_cost`, `server/loops/runner.py`).
+
 ## Why this way
 
 - **One file, strict model.** A wrong key or value stops startup with a message instead of running half-configured.

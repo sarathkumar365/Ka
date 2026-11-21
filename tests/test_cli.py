@@ -26,3 +26,21 @@ def test_check_on_a_fresh_install_says_sign_up(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cli, "_USER", None)
     assert cli._check(argparse.Namespace()) == 0
     assert "sign up in the app" in capsys.readouterr().out
+
+
+def test_check_validates_every_account(ctx, monkeypatch, capsys):
+    import shutil
+
+    from server.config import Config
+
+    root = ctx.config.data_repo.parents[1]  # the account config points at users/avery
+    base = Config(data_repo=root)
+    add_account(base, "avery")
+    shutil.copytree(root / "users" / "avery", root / "users" / "blake")
+    (root / "users" / "blake" / "accounts.yaml").write_text("accounts: [not, valid: {")
+    add_account(base, "blake")
+    monkeypatch.setattr(cli, "load_config", lambda: base)
+    monkeypatch.setattr(cli, "_USER", None)
+    assert cli._check(argparse.Namespace()) == 1
+    out = capsys.readouterr().out
+    assert "ok: avery" in out and "blake" in out

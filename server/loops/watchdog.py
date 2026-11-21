@@ -34,7 +34,7 @@ def check(db: Db, store: TaskStore, now: datetime) -> list[str]:
                 continue
             last = datetime.fromisoformat(t.last_checkin or t.created_at)
             if now - last > _due(t.trigger):
-                key = f"stale:{t.id}"
+                key = f"stale:{t.id}:{t.last_checkin or 'never'}"  # a new miss after a new run alerts again
                 if _raise(
                     db, key, f"{t.name} missed its run", f"last check-in {last:%Y-%m-%d %H:%M}", now
                 ):

@@ -64,3 +64,13 @@ def expires_at(db: Db, token: str) -> datetime | None:
 def revoke(db: Db, token: str) -> None:
     with db.conn:
         db.conn.execute("delete from sessions where token_hash=?", (_digest(token),))
+
+
+def purge_expired(db: Db, now: datetime) -> int:
+    """Delete sessions past their idle or hard expiry; resolve only removes the ones presented."""
+    t = now.isoformat()
+    with db.conn:
+        cur = db.conn.execute(
+            "delete from sessions where expires_at<=? or hard_expires_at<=?", (t, t)
+        )
+    return cur.rowcount

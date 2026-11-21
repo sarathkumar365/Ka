@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { keys } from '../../lib/api'
 import { type Draft, emptyDraft, hasInput } from './draft'
@@ -15,6 +15,10 @@ const LABELS = ['Basics', 'Documents', 'Sources', 'Memory', 'Send']
 
 export function OnboardingPage() {
   const [step, setStep] = useState(0)
+  const top = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    top.current?.closest('main.screen')?.scrollTo({ top: 0 }) // each step opens at its heading
+  }, [step])
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [phase, setPhase] = useState<SendPhase>('idle')
   const nav = useNavigate()
@@ -39,7 +43,7 @@ export function OnboardingPage() {
   const last = step === LABELS.length - 1
   const busy = phase === 'sending' || phase === 'running' || phase === 'done'
   return (
-    <div className="col page onboarding">
+    <div className="col page onboarding" ref={top}>
       {!busy && (
         <Progress current={step + 1} />
       )}

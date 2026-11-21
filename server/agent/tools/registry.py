@@ -23,6 +23,7 @@ class PendingWrite:
     summary: str
     diff: str
     apply: Callable[[], str]  # performs the write, returns a one-line result
+    outbound: bool = False  # sends something out (a link to open), not a write: no loop may approve
 
 
 @dataclass
@@ -32,6 +33,8 @@ class ToolContext:
     today: Callable[[], date] | None = None  # default: today in the account's time zone
     db: Db | None = None
     conversation_id: str | None = None
+    # A loop run wraps every adapter a tool builds (the page summariser), so its limits see them.
+    wrap_adapter: Callable[[Any], Any] | None = None
 
     def __post_init__(self) -> None:
         if self.today is None:
@@ -130,5 +133,7 @@ def run_tool(name: str, raw_args: dict, ctx: ToolContext) -> Any:
     if t.approval:
         if not isinstance(result, PendingWrite):
             raise TypeError(f"{name} is approval-gated and must return PendingWrite")
+        return result
+    if isinstance(result, PendingWrite):  # a safe tool may still ask first in some cases
         return result
     return to_json(result)

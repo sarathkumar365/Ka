@@ -5,6 +5,7 @@ import { api, keys } from '../../lib/api'
 import { streamChat } from '../../lib/stream'
 import { ApprovalCard } from './ApprovalCard'
 import { Composer } from './Composer'
+import { followGrowth, nearBottom } from './follow'
 import { emptyState } from './emptyState'
 import { Entity } from './Entity'
 import { entityMode } from './entityStyle'
@@ -54,6 +55,10 @@ export function ChatPage() {
   const [loading, setLoading] = useState(false) // history of the opened chat is on its way
   const abort = useRef<AbortController | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
+  const thread = useRef<HTMLDivElement>(null)
+  const following = useRef(true)
+  const jump = useRef(true) // a freshly loaded chat opens at its end with no glide
+  const lastTop = useRef(0)
   const live = useRef(false) // an answer arrived in this session, so type it out
   const loaded = useRef<string | null>(null) // conversation the screen currently shows
   const [typing, setTyping] = useState(false) // composer focused on the empty home: the entity becomes its border
@@ -69,6 +74,8 @@ export function ChatPage() {
     if (!id) {
       setLoading(false) // a chat that was still loading must not leave the new one busy
       setBase(0)
+      following.current = jump.current = true
+      lastTop.current = 0
       return dispatch({ type: 'load', conversationId: null, items: [] })
     }
     let cancelled = false
@@ -79,6 +86,8 @@ export function ChatPage() {
         setLoading(false)
         const items: ChatItem[] = c.items.map((i) => (i.kind === 'tool' ? { ...i, result: i.result ?? undefined } : i))
         setBase(items.length)
+        following.current = jump.current = true
+      lastTop.current = 0
         dispatch({ type: 'load', conversationId: id, items })
       },
       () => {
@@ -92,12 +101,22 @@ export function ChatPage() {
     }
   }, [id, nav])
 
+  // Follow the stream only while the reader is at the end; scrolling up to read stops it.
+  const toEnd = useCallback(() => {
+    const el = scroller.current
+    if (!el || !following.current) return
+    el.scrollTo({ top: el.scrollHeight, behavior: jump.current ? 'auto' : 'smooth' })
+    jump.current = false
+  }, [])
+  useEffect(() => toEnd(), [state.items, state.phase, toEnd])
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
-  }, [state.items, state.phase])
+    if (!scroller.current || !thread.current) return
+    return followGrowth(scroller.current, thread.current, () => following.current)
+  }, [])
 
   const send = useCallback(
     (text: string) => {
+      following.current = true
       dispatch({ type: 'send', text })
       const ctl = new AbortController()
       abort.current = ctl
@@ -159,23 +178,31 @@ export function ChatPage() {
     }
   }
   return (
-    <div className="chat col">
+    <div className="chat col" data-typing={typing}>
       <Entity mode={entityMode(state.phase, !empty, typing)} />
       <div
         className="msgs"
         ref={scroller}
         // a new row opens from 0px, so scroll again once it has its full height
+        onScroll={(e) => {
+          const el = e.currentTarget
+          // only an upward move unfollows: a smooth scroll in flight passes through mid positions
+          if (el.scrollTop < lastTop.current - 2) following.current = nearBottom(el)
+          else if (nearBottom(el)) following.current = true
+          lastTop.current = el.scrollTop
+        }}
         onAnimationEnd={(e) => {
-          if ((e.target as HTMLElement).classList.contains('reveal'))
-            scroller.current?.scrollTo({ top: scroller.current.scrollHeight })
+          if ((e.target as HTMLElement).classList.contains('reveal')) toEnd()
         }}
       >
-        {state.items.map((it, i) => (
-          // new rows open from 0fr to 1fr and fade in (design: 380ms var(--E), opacity 220ms)
-          <div key={i} className={i >= base ? 'reveal' : undefined}>
-            <div>{row(it, i)}</div>
-          </div>
-        ))}
+        <div ref={thread}>
+          {state.items.map((it, i) => (
+            // new rows open from 0fr to 1fr and fade in (design: 380ms var(--E), opacity 220ms)
+            <div key={i} className={i >= base ? 'reveal' : undefined}>
+              <div>{row(it, i)}</div>
+            </div>
+          ))}
+        </div>
       </div>
       {empty && !busy && (
         <div className="empty">

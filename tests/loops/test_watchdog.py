@@ -13,7 +13,7 @@ def test_missed_run_raises_one_alert():
     tid = s.add(ScheduledTask(name="t", kind="agent", trigger={"type": "interval", "minutes": 60}, created_by="ui"), NOW)
     s.checkin(tid, NOW)
     assert check(db, s, NOW + timedelta(minutes=90)) == []
-    assert check(db, s, NOW + timedelta(hours=3)) == [f"stale:{tid}"]
+    assert check(db, s, NOW + timedelta(hours=3)) == [f"stale:{tid}:{NOW.isoformat()}"]
     assert check(db, s, NOW + timedelta(hours=4)) == []  # deduplicated
     alert = db.list_pending()[0]
     assert alert.kind == "alert" and "t" in alert.payload["title"]
@@ -24,7 +24,7 @@ def test_never_run_task_counts_from_creation():
     s = TaskStore(db)
     tid = s.add(ScheduledTask(name="t", kind="agent", trigger={"type": "cron", "hour": 7}, created_by="ui"), NOW)
     assert check(db, s, NOW + timedelta(hours=25)) == []
-    assert check(db, s, NOW + timedelta(hours=27)) == [f"stale:{tid}"]
+    assert check(db, s, NOW + timedelta(hours=27)) == [f"stale:{tid}:never"]
 
 
 def test_paused_tasks_and_pause_switch_are_quiet():
@@ -40,3 +40,14 @@ def test_old_pending_item_raises_alert():
     item = db.add_pending("memory", {"type": "fact", "text": "x"}, None, NOW, "x")
     assert check(db, TaskStore(db), NOW + timedelta(days=4)) == [f"waiting:{item}"]
     assert check(db, TaskStore(db), NOW + timedelta(days=5)) == []
+
+
+def test_dismissed_stale_alert_fires_again_after_new_checkin():
+    db = Db(":memory:", "avery")
+    s = TaskStore(db)
+    tid = s.add(ScheduledTask(name="t", kind="agent", trigger={"type": "interval", "minutes": 60}, created_by="ui"), NOW)
+    s.checkin(tid, NOW)
+    assert len(check(db, s, NOW + timedelta(hours=3))) == 1
+    db.set_pending_status(db.list_pending()[0].id, "rejected")  # dismissed
+    s.checkin(tid, NOW + timedelta(days=30))  # it ran again for a month, then stopped
+    assert len(check(db, s, NOW + timedelta(days=30, hours=3))) == 1

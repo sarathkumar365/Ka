@@ -44,7 +44,7 @@ export function Entity({ mode, lights }: { mode: EntityMode; lights?: number }) 
   const lit = mode === 'empty' || mode === 'answering' || mode === 'waiting' || mode === 'docked'
   const count = lights ?? (lit ? pending.length : 0)
   return (
-    <div className="entity-stage">
+    <div className="entity-stage" data-mode={mode}>
       <div className="entity-trail" aria-hidden="true" style={{ ...box, transition: e.tr2 }} />
       <div
         className="entity"

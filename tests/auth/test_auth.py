@@ -80,3 +80,15 @@ def test_login_limiter_window():
     lim = LoginLimiter(max_attempts=2, window=timedelta(minutes=10))
     assert lim.allow("c", T0) and lim.allow("c", T0) and not lim.allow("c", T0)
     assert lim.allow("c", T0 + timedelta(minutes=11))
+
+
+def test_limiter_never_holds_more_than_max_keys():
+    from datetime import datetime
+
+    from server.auth.ratelimit import LoginLimiter
+
+    lim = LoginLimiter(5, timedelta(minutes=10), max_keys=3)
+    now = datetime(2031, 4, 5, 12, 0)
+    for n in range(5):
+        lim.fail(f"10.0.0.{n}|someone{n}", now)
+    assert len(lim._seen) <= 3

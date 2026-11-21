@@ -201,6 +201,13 @@ class Db:
         r = rows[0] if rows else None
         return PendingItem(r[0], r[1], json.loads(r[2]), r[3], r[4], r[5]) if r else None
 
+    def set_pending_payload(self, item_id: int, payload: dict) -> None:
+        with self.conn:
+            self.conn.execute(
+                "update pending set payload=? where id=? and user_id=?",
+                (json.dumps(payload), item_id, self.user_id),
+            )
+
     def set_pending_status(self, item_id: int, status: Literal["approved", "rejected"]) -> None:
         with self.conn:
             self.conn.execute(
@@ -340,9 +347,8 @@ def _repair(messages: list[dict]) -> list[dict]:
     return out
 
 
+INTERRUPTED = "interrupted: no result recorded"
+
+
 def _interrupted(call_id: str) -> dict[str, Any]:
-    return {
-        "role": "tool",
-        "tool_call_id": call_id,
-        "content": "interrupted: no result recorded",
-    }
+    return {"role": "tool", "tool_call_id": call_id, "content": INTERRUPTED}

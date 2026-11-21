@@ -7,11 +7,12 @@ Never load any `*.interview.md` file (keeps context lean).
 - `uv sync` install
 - `uv run pytest` tests
 - `uv run ruff check .` lint
-- `uv run ka [--user USERNAME] check|import|statements` CLI (`--user` needed once there are several accounts); `uv run ka users list|reset-password USERNAME`
+- `uv run ka [--user USERNAME] check|import|statements` CLI (`--user` needed once there are several accounts; `check` without it checks every account); `uv run ka users list|reset-password USERNAME`
 - `uv run ka google login|status|probe`, `uv run ka sheet push` (flag `google`)
 - `uv run ka chat [--local] [--resume ID]` terminal chat; `uv run ka pending [approve|reject ID]`; `uv run ka extract [--date YYYY-MM-DD] [--local]` (flag `nightly_extraction`)
+- `uv run ka loops [list|pause|resume|run ID]` scheduled tasks (flag `loops`)
 - `uv run ka suggest` queue category suggestions for uncategorised rows (flag `category_suggestions`)
-- `uv run ka intake FILE... [--memory F --source NAME]...` resume and memory exports to pending cards (flag `intake`); `uv run ka serve` web UI on 127.0.0.1:8000 (flag `web_ui`); `cd ui && npm install`, `npm run dev` (proxy to :8000), `npx vitest run`, `npm run lint` (oxlint), `npm run build`
+- `uv run ka intake FILE... [--memory F --source NAME]...` resume and memory exports to pending cards (flag `intake`); `uv run ka serve [--port N]` web UI on 127.0.0.1:8000 (flag `web_ui`); `cd ui && npm install`, `npm run dev` (proxy to :8000), `npx vitest run`, `npm run lint` (oxlint), `npm run build`
 
 ## Ka rules
 - No LLM call in the parser or tagging path.
@@ -21,8 +22,8 @@ Never load any `*.interview.md` file (keeps context lean).
 - Personal data lives in the private data repo at the path in `config.yaml`.
 
 ## Structure
-- Organise by feature, same name everywhere: `server/api/<feature>.py` maps to `context/flows/<feature>`.
-- Core logic: `server/agent`, `server/finance`, `server/intake`, `server/memory`, `server/integrations`, `server/store`. Tests mirror `server/`.
+- Organise by feature, same name everywhere where possible: `server/api/<feature>.py` maps to `context/flows/<feature>`. Some differ (`api/auth.py` is `login`; `onboarding`, `conversations`, `approvals`, `describe` belong to other flows); `context/index.md` is the map.
+- Core logic: `server/agent`, `server/auth`, `server/finance`, `server/intake`, `server/loops`, `server/memory`, `server/integrations`, `server/store`, `server/toolkits`, `server/web`. Tests mirror `server/`.
 
 ## Feature flags
 - Every in-progress feature goes behind a flag in `config.yaml`, default off. Remove the flag when stable.

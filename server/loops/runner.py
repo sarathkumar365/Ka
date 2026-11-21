@@ -2,11 +2,12 @@
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 
+from server.config import Price
 from server.store.db import Db
 
 from .tasks import RunCounts, RunLimits, ScheduledTask, TaskStore
@@ -19,9 +20,23 @@ class LimitHit(Exception):
     pass
 
 
+def estimate_cost(prices: Mapping[str, Price], model: str, usage) -> Decimal | None:
+    """Cost from tokens when the provider sends none. An unlisted model counts at the dearest
+    listed price, so a cap can only stop too early, never too late. No prices: unknown."""
+    if not prices:
+        return None
+    p = prices.get(model) or max(prices.values(), key=lambda x: x.input_per_m + x.output_per_m)
+    million = Decimal(1_000_000)
+    return (Decimal(usage.prompt_tokens) * p.input_per_m
+            + Decimal(usage.completion_tokens) * p.output_per_m) / million  # fmt: skip
+
+
 class Budget:
-    def __init__(self, limits: RunLimits, clock: Callable[[], float] = time.monotonic) -> None:
-        self.limits, self.clock = limits, clock
+    def __init__(
+        self, limits: RunLimits, clock: Callable[[], float] = time.monotonic,
+        prices: Mapping[str, Price] | None = None,
+    ) -> None:  # fmt: skip
+        self.limits, self.clock, self.prices = limits, clock, prices or {}
         self.started = clock()
         self.counts = RunCounts()
 
@@ -36,9 +51,11 @@ class Budget:
         if c.cost_usd > lim.cost_usd:
             raise LimitHit("cost_usd limit reached")
 
-    def charge_model(self, usage) -> None:
+    def charge_model(self, usage, model: str = "unknown") -> None:
         self.counts.model_calls += 1
         cost = getattr(usage, "cost_usd", None)
+        if cost is None:
+            cost = estimate_cost(self.prices, model, usage)
         if cost is not None:
             self.counts.cost_usd += Decimal(cost)
         self.check()
@@ -58,7 +75,7 @@ class BudgetAdapter:
     def complete(self, messages: list[dict], tools: list[dict]):
         self.budget.check()
         reply = self.inner.complete(messages, tools)
-        self.budget.charge_model(reply.usage)
+        self.budget.charge_model(reply.usage, self.model)
         return reply
 
 
@@ -91,6 +108,7 @@ def run_task(
     body: Callable[[ScheduledTask, RunContext], dict | None],
     now: datetime,
     loops_on: bool = True,
+    prices: Mapping[str, Price] | None = None,
 ) -> int:
     store = TaskStore(db)
     if not loops_on or paused(db) or task.status != "active":
@@ -99,7 +117,7 @@ def run_task(
         store.finish_run(run_id, "skipped", why, RunCounts(), {}, now)
         return run_id
     run_id = store.start_run(task.id, now)
-    budget = Budget(task.limits)
+    budget = Budget(task.limits, prices=prices)
     rc = RunContext(budget, store, run_id, task)
     status, reason, result = "ok", "", {}
     try:

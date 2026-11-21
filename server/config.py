@@ -1,5 +1,6 @@
 import logging
 import os
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +34,15 @@ class ModelConfig(BaseModel):
         return self
 
 
+class Price(BaseModel):
+    """US dollars per million tokens, for models whose provider reports no cost."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    input_per_m: Decimal
+    output_per_m: Decimal
+
+
 class GoogleConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -54,6 +64,7 @@ class Config(BaseModel):
     flags: dict[str, bool] = {}
     models: dict[str, ModelConfig] = {}
     private_models: list[ModelConfig] = []  # tried in order for finance conversations
+    prices: dict[str, Price] = {}  # model id -> price; lets the loop cost cap see every call
     google: GoogleConfig | None = None
     ui_hosts: list[str] = []
     # Set by server.users.user_config: data_repo then points at users/<user_id> and repo_root at

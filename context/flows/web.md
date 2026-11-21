@@ -21,6 +21,8 @@ flowchart LR
 - **Little by default.** Highlights, not pages, keep each call cheap; a full page only on request.
 - **Three providers.** Free tiers run out; independent indexes fail differently.
 - **Nothing personal leaves in a finance chat.** Queries go to outside companies, so a query or a page URL with four or more digits or an account label or bank name is refused there.
+- **Links after outside text.** Once a conversation has read outside text (web, statements, movie data), `fetch_page` opens only links the person typed or a web search returned (`known_urls`, `server/agent/context.py`); any other link asks first ("Open ...?"), because a page can tell the model to put data into a link. In a loop no one can say yes, so it is refused, in direct mode too (`PendingWrite.outbound`).
+- **Bounded reads.** The plain fetcher streams the page and stops at 2 MB or 20 seconds, and refuses if the address it actually connected to is private (a name that resolves public first and local second cannot reach the LAN). Provider clients are made once per set of keys and reused.
 - **Raw results never become memory.** Saving needs `remember` (blocked after untrusted content) or `propose_memory` (owner approval).
 
 ## Failure cases
@@ -29,7 +31,9 @@ flowchart LR
 |---|---|
 | No key configured | `no web search provider configured (add a key to .env)` |
 | All providers fail | `web search unavailable: exa: timeout; brave: HTTP 429; ...` |
-| Private or local URL | refused before any request |
+| Private or local URL | refused before any request, and again if the connected address is local |
+| Unknown link after outside text | approval card "Open <url>?"; declined or in a loop: nothing is fetched |
+| Page too big or too slow | cut at 2 MB; `page took too long` after 20 s |
 | Personal query in a finance chat | `query looks personal; rephrase it without amounts or account names` |
 
 Source: `server/web/*`, `server/toolkits/core/web.py`, `server/agent/context.py`

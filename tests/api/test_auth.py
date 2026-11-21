@@ -128,3 +128,37 @@ def test_forged_forwarded_address_does_not_lock_others(empty_client):
     ok = empty_client.post("/api/auth/login", json={"username": "avery", "password": PW},
                            headers={"x-forwarded-for": "10.0.0.5"})
     assert ok.status_code == 200
+
+
+def test_wrong_passwords_from_many_addresses_never_lock_the_owner(empty_client):
+    signup(empty_client, "avery")
+    empty_client.cookies.clear()
+    empty_client.app.state.trusted_proxies = {"testclient"}
+    body = {"username": "avery", "password": "wrong password 1"}
+    for n in range(12):  # 60 wrong passwords in all, 5 from each address
+        for _ in range(5):
+            empty_client.post("/api/auth/login", json=body, headers={"x-forwarded-for": f"10.0.1.{n}"})
+    ok = empty_client.post("/api/auth/login", json={"username": "avery", "password": PW},
+                           headers={"x-forwarded-for": "10.0.2.1"})
+    assert ok.status_code == 200
+
+
+def test_login_revokes_the_previous_cookie(empty_client):
+    signup(empty_client, "avery")
+    old = empty_client.cookies.get("ka_session")
+    assert empty_client.post("/api/auth/login", json={"username": "avery", "password": PW}).status_code == 200
+    assert empty_client.cookies.get("ka_session") != old
+    stale = TestClient(empty_client.app, base_url="http://localhost")
+    stale.cookies.set("ka_session", old)
+    assert stale.get("/api/settings").status_code == 401
+
+
+def test_purge_expired_drops_dead_sessions(tmp_path):
+    from server.auth.sessions import new_session, purge_expired, resolve
+
+    db = Db.system(tmp_path / "ka.db")
+    now = datetime(2031, 4, 5, 12, 0)
+    fresh = new_session(db, "u_a", now, None)
+    new_session(db, "u_b", now - timedelta(days=15), None)
+    assert purge_expired(db, now) == 1
+    assert resolve(db, fresh, now) == "u_a"

@@ -187,3 +187,20 @@ def test_saving_the_same_ids_again_is_fine(make_client_google, ctx):
     ids = {"drive_folder_id": "folder-1", "sheet_id": "sheet-1"}
     assert c.put("/api/google/settings", json=ids).status_code == 200
     assert c.put("/api/google/settings", json=ids).status_code == 200
+
+
+def test_oauth_state_expires_and_is_capped(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+
+    from server.integrations.google import oauth
+
+    auth = GoogleAuth(gcfg(tmp_path), tmp_path / "google" / "token.json")
+    start = datetime(2031, 4, 5, 12, 0)
+    monkeypatch.setattr(oauth, "_now", lambda: start)
+    for _ in range(7):
+        auth.login_url("http://localhost/api/google/callback")
+    assert len(auth._pending) == 5
+    old = next(iter(auth._pending))
+    monkeypatch.setattr(oauth, "_now", lambda: start + timedelta(minutes=11))
+    with pytest.raises(GoogleAuthError, match="expired"):
+        auth.finish("code", old, "http://localhost/api/google/callback")

@@ -29,7 +29,8 @@ Each later request passes `require_session` (`server/auth/middleware.py`): `reso
 
 - **Opaque ids, not usernames, for folders and rows.** A recycled username never inherits an old folder, and paths do not reveal names.
 - **Server-side sessions, not JWT.** Logout and expiry are a row delete.
-- **Limits per address and username.** Five wrong passwords block that pair for 15 minutes; others are not locked out, so nobody can lock another person's account from elsewhere. The client address is read from `X-Forwarded-For` only when the request comes from the local tailnet proxy (`server/auth/clientip.py`).
+- **Limits per address and username.** Five wrong passwords block that pair for 15 minutes, and one address may try 20 sign-ins in 10 minutes. There is no block per username alone (an earlier 50-an-hour one was removed), so nobody can lock another person out by guessing at their name. uvicorn reads `X-Forwarded-For` only from the local tailnet proxy and keeps the proxy's own (last) entry; `client_ip` (`server/auth/clientip.py`) then sees that address.
+- **Session housekeeping.** Signing in replaces any session cookie already on the device; an hourly job (`purge_expired`) deletes expired sessions; `POST /api/auth/logout` deletes the current one.
 
 ## Failure cases
 
@@ -39,8 +40,9 @@ Each later request passes `require_session` (`server/auth/middleware.py`): `reso
 | Username taken | 409 `that username is taken` |
 | Sixth sign-up from one address within an hour | 429 |
 | Five wrong passwords from one address | 429 for that address and username for 15 minutes; other addresses still work |
+| 21st sign-in attempt from one address within 10 minutes | 429 |
 | Folder for the new account cannot be made | 500, the account row is removed, nothing half made |
 | Another account signs in on the same tab | earlier account's saved place and draft are dropped |
-| CLI with several accounts and no `--user` | `error: several accounts: pass --user USERNAME` |
+| CLI with several accounts and no `--user` | `error: several accounts: pass --user USERNAME`; `ka check` instead checks every account, one line each, and exits 1 if any fails |
 
 Source: `ui/src/features/auth/*`, `ui/src/app/Shell.tsx`, `ui/src/app/routes.tsx`, `server/auth/*`, `server/api/auth.py`, `server/api/deps.py`, `server/users.py`, `server/cli.py`

@@ -238,7 +238,7 @@ export const api = {
   updateLoop: (id: string, body: Partial<Pick<LoopTask, 'status' | 'mode'>>) =>
     call<LoopTask>(`/loops/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteLoop: (id: string) => call<{ ok: boolean }>(`/loops/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  runLoop: (id: string) => post(`/loops/${encodeURIComponent(id)}/run`) as Promise<TaskRun>,
+  runLoop: (id: string) => post(`/loops/${encodeURIComponent(id)}/run`) as Promise<{ started: true }>,
   loopRuns: (id: string) => call<TaskRun[]>(`/loops/${encodeURIComponent(id)}/runs`),
   setLoopsPaused: (paused: boolean) =>
     call<{ paused: boolean }>('/loops/paused', { method: 'PUT', body: JSON.stringify({ paused }) }),

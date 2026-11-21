@@ -4,6 +4,7 @@ import ipaddress
 import socket
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from typing import Protocol
 from urllib.parse import urlsplit
 
@@ -62,6 +63,15 @@ def _reason(e: Exception) -> str:
 
 
 def providers_from_env(env: Mapping[str, str]) -> tuple[list[SearchProvider], list[PageFetcher]]:
+    """One set of providers per set of keys: each holds an HTTP client, so building them on every
+    call would leave a pile of open connections."""
+    keys = ("EXA_API_KEY", "BRAVE_SEARCH_API_KEY", "FIRECRAWL_API_KEY")
+    return _providers(tuple(env.get(k) or "" for k in keys))
+
+
+@lru_cache(maxsize=4)
+def _providers(keys: tuple[str, str, str]) -> tuple[list[SearchProvider], list[PageFetcher]]:
+    env = dict(zip(("EXA_API_KEY", "BRAVE_SEARCH_API_KEY", "FIRECRAWL_API_KEY"), keys, strict=True))
     from .brave import BraveSearch
     from .exa import ExaFetcher, ExaSearch
     from .firecrawl import FirecrawlFetcher, FirecrawlSearch

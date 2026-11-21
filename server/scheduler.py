@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from server.agent.adapters import Adapter
@@ -28,7 +29,10 @@ class ScheduledJob:
 
 
 def start_scheduler(jobs: list[ScheduledJob]) -> BackgroundScheduler:
-    scheduler = BackgroundScheduler()
+    # Loops get their own workers, so busy loops never hold up imports, extraction or the watchdog.
+    scheduler = BackgroundScheduler(
+        executors={"default": ThreadPoolExecutor(10), "loops": ThreadPoolExecutor(4)}
+    )
     for job in jobs:
         # coalesce plus no grace limit: a run missed while the laptop slept happens once on wake
         scheduler.add_job(
@@ -103,4 +107,5 @@ def nightly_job(
                 db.conn.close()
             busy.release()
 
-    return ScheduledJob("nightly_extraction", {"trigger": "cron", "hour": 3, "minute": 0}, run)
+    # hourly, as the server runs it per account: each run catches up to the local yesterday
+    return ScheduledJob("nightly_extraction", {"trigger": "interval", "hours": 1}, run)

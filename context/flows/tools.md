@@ -29,7 +29,7 @@ Request `propose_change {target: highlight, op: add, parent: "Acme Widgets|2022-
 - **Structured patch over a YAML fragment from the model.** The model cannot write arbitrary text or file paths; code owns ids, validation and layout.
 - **`approval` flag on the tool, not a separate tool.** The loop decides to pause from one attribute. `remember` is WRITE without approval, as the spec says it saves immediately.
 - **`ctx.data` reloads from disk each time.** Files are tiny; a committed change is visible to the next call with no cache to invalidate.
-- **Refuse dirty files.** If you hand-edit `memory.yaml`, the agent will not commit your half-finished edit with its own.
+- **Refuse dirty files.** If you hand-edit a memory file (`memory/<toolkit>.yaml`), the agent will not commit your half-finished edit with its own.
 
 ## Failure cases
 

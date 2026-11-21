@@ -28,7 +28,6 @@ router = APIRouter()
 LIMITS = {
     "login": (20, timedelta(minutes=10)),  # attempts per address
     "failures": (5, timedelta(minutes=15)),  # wrong passwords per address and username
-    "per_user": (50, timedelta(hours=1)),  # wrong passwords per username, all addresses
     "signup": (5, timedelta(hours=1)),  # sign-ups per address
 }
 
@@ -106,13 +105,8 @@ def login(body: Credentials, request: Request, response: Response):
     client = client_ip(request)
     pair = f"{client}|{body.username.lower()}"
     failures = _limiter(request, "failures")
-    name = body.username.lower()
-    per_user = _limiter(request, "per_user")
-    if (
-        failures.blocked(pair, now())
-        or per_user.blocked(name, now())
-        or not _limiter(request, "login").allow(client, now())
-    ):
+    # no block per username alone: anyone could lock someone else out by guessing at their name
+    if failures.blocked(pair, now()) or not _limiter(request, "login").allow(client, now()):
         raise HTTPException(429, "too many attempts, try again later")
     db = _sysdb(request)
     try:
@@ -120,9 +114,10 @@ def login(body: Credentials, request: Request, response: Response):
             user_id = authenticate(db, body.username, body.password, now())
         except AuthError as e:
             failures.fail(pair, now())
-            per_user.fail(name, now())
             raise HTTPException(401, str(e)) from None
         failures.clear(pair)
+        if request.cookies.get(COOKIE):  # a cookie already on this device is replaced, not kept
+            revoke(db, request.cookies[COOKIE])
         token = new_session(db, user_id, now(), request.headers.get("user-agent"))
         _set_cookie(request, response, db, token)
         return {"user": user_id}

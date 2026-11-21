@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import type { LoopTask } from '../../lib/api'
-import { canGoDirect, describeTrigger, nextRunLabel, triggerFromForm } from './loops'
+import type { LoopTask, TaskRun } from '../../lib/api'
+import { canGoDirect, describeTrigger, nextRunLabel, runSettled, triggerFromForm } from './loops'
 
 const base = {
   id: 'T-1', name: 'n', kind: 'agent', builtin: null, brief: 'b', toolkits: [], mode: 'shadow',
@@ -29,4 +29,11 @@ test('the form makes a valid trigger', () => {
   expect(triggerFromForm({ every: 'daily', hours: 1, time: '07:30', day: '' })).toEqual({ type: 'cron', hour: 7, minute: 30 })
   expect(triggerFromForm({ every: 'weekly', hours: 1, time: '08:00', day: 'mon' })).toEqual({ type: 'cron', hour: 8, minute: 0, day_of_week: 'mon' })
   expect(describeTrigger({ type: 'folder', minutes: 180, source: 'drive' })).toBe('checks Drive every 3 h')
+})
+
+test('a manual run counts as finished only once a newer run has an end time', () => {
+  const r = (id: number, finished: string | null) => ({ id, finished_at: finished }) as TaskRun
+  expect(runSettled([r(4, '2031-04-05T10:00:00')], 4)).toBe(false) // the old run
+  expect(runSettled([r(5, null), r(4, 'x')], 4)).toBe(false) // the new one is still going
+  expect(runSettled([r(5, '2031-04-05T10:01:00')], 4)).toBe(true)
 })

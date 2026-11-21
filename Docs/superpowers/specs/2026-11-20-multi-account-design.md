@@ -118,7 +118,7 @@ asked to keep Ka single-account; the earlier "one account" rule is withdrawn.
 - Nightly extraction and Drive sync use it (replacing `_as_owner`). Loops already run per
   account.
 - Time zone: each account's `profile.timezone` (default: the server's) is used for the
-  agent's "today", the nightly 03:00 run and loop cron triggers.
+  agent's "today", the hourly nightly-extraction run (each account up to its local yesterday) and loop cron triggers.
 
 ### 7. CLI
 
@@ -154,8 +154,8 @@ Home screen (`WelcomePage`):
 ```
 
 - Reuses the app frame (`header.bar`, `main.screen`), colour tokens, type scale, the
-  onboarding page layout, `button.primary` and `button.secondary`, and the Ka ring from
-  `KaRing`/`ring.ts` in an idle state (respects reduced motion).
+  onboarding page layout, `button.primary` and `button.secondary`, and the empty-chat Ka
+  entity (`Entity mode="empty" lights={0}`).
 - Sign-up and sign-in keep `AuthFrame`; each links to the other ("Already have an account?
   Sign in", "New here? Create an account").
 - Phones and installed PWA: buttons sit at the bottom inside the safe area; the layout uses

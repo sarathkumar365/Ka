@@ -73,7 +73,7 @@ def test_cross_site_post_is_refused_but_same_origin_works(make_client, cfg, db):
     evil = client.post(f"/api/pending/{pid}/reject", headers={"origin": "https://evil.example"})
     assert evil.status_code == 403
     assert client.get("/api/pending").json()[0]["id"] == pid  # untouched
-    ok = client.post(f"/api/pending/{pid}/reject", headers={"origin": "http://localhost:8000"})
+    ok = client.post(f"/api/pending/{pid}/reject", headers={"origin": "http://localhost"})
     assert ok.status_code == 200
 
 

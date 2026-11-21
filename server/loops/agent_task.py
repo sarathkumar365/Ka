@@ -9,6 +9,9 @@ from server.memory.pending import queue_tool_write
 from .runner import BudgetAdapter, RunContext
 from .tasks import ScheduledTask
 
+# A loop must not make more loops, or write into every future prompt, with no one watching.
+HEADLESS_HIDDEN = frozenset({"schedule_task", "remember"})
+
 
 def agent_task_body(
     task: ScheduledTask, rc: RunContext, ctx: ToolContext, adapter, now: datetime,
@@ -36,11 +39,13 @@ def agent_task_body(
         if e.kind == "tool_call":
             rc.budget.charge_tool()
 
+    ctx.wrap_adapter = lambda a: BudgetAdapter(a, rc.budget)
     answer = run_turn(
         task.brief, conv_id=conv, db=db, adapter=BudgetAdapter(adapter, rc.budget), ctx=ctx,
+        hidden=HEADLESS_HIDDEN,
         # shadow: every risky call becomes a card; direct: writes apply (still blocked after
-        # untrusted content, like a chat)
-        approve=lambda p: direct, on_event=on_event, now=lambda: now,
+        # untrusted content, like a chat); a link to open after outside text is never approved
+        approve=lambda p: direct and not p.outbound, on_event=on_event, now=lambda: now,
         queue_risky=None if direct else queue,
         private_adapter=BudgetAdapter(private_adapter, rc.budget) if private_adapter else None,
     )  # fmt: skip

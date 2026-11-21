@@ -5,9 +5,10 @@ import { RunList } from './RunList'
 import { useLoops } from './useLoops'
 
 function Task({ t, now }: { t: LoopTask; now: Date }) {
-  const { update, remove, run } = useLoops()
+  const { update, remove, run, runningId } = useLoops()
   const [open, setOpen] = useState(false)
-  const busy = update.isPending || remove.isPending || run.isPending
+  const running = runningId === t.id
+  const busy = update.isPending || remove.isPending || run.isPending || running
   return (
     <div className="card loop">
       <div className="kind">
@@ -24,7 +25,7 @@ function Task({ t, now }: { t: LoopTask; now: Date }) {
       </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="secondary" disabled={busy} onClick={() => run.mutate(t.id)}>
-          Run now
+          {running ? 'Running…' : 'Run now'}
         </button>
         <button
           className="secondary"

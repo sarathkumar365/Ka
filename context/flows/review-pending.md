@@ -1,10 +1,10 @@
 # Flow: review pending
 
-**Summary.** `ka pending` lists queued memories and intake cards (`approve ID` applies an intake card's selected lines as one commit, see [intake.md](intake.md)); `approve <id>` writes one to `memory.yaml` as a validated git commit, `reject <id>` discards it. A contradiction approval adds the new entry first, then retires the old one with `replaced_by` pointing at the new id. Statement cards from Drive are listed but approved or rejected only in the web Pending screen.
+**Summary.** `ka pending` lists queued memories and intake cards (`approve ID` applies an intake card's selected lines as one commit, see [intake.md](intake.md)); `approve <id>` writes one to `memory/<toolkit>.yaml` (core facts in `memory/core.yaml`) as a validated git commit, `reject <id>` discards it. A contradiction approval adds the new entry first, then retires the old one with `replaced_by` pointing at the new id. Statement cards from Drive are listed but approved or rejected only in the web Pending screen.
 
 ```mermaid
 flowchart LR
-    L[ka pending] --> I{owner}
+    L[ka pending] --> I{person}
     I -->|approve| A[plan_change add memory] --> C[apply_change commit]
     C -->|replaces?| R[update old: retired, replaced_by] --> C2[second commit]
     I -->|reject| X[status rejected]
@@ -23,7 +23,7 @@ Pending 4: "Prefers hybrid roles", replaces M-0001. `approve_pending` builds a `
 
 | Case | Result |
 |---|---|
-| `memory.yaml` has uncommitted edits | error, item stays pending |
+| A memory file has uncommitted edits | error, item stays pending |
 | Item already handled or unknown id | error, exit 1 |
 | Retire step fails | new entry kept, error names the old id |
 

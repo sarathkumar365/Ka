@@ -119,7 +119,7 @@ def queue_tool_write(
 
 
 def approve_tool_write(item_id: int, ctx) -> str:
-    """Run the tool again now (the data may have changed) and apply what it proposes."""
+    """Run the tool again now and apply it only if it still proposes exactly what the card showed."""
     import json
 
     from server.agent.tools import PendingWrite, ToolError, run_tool
@@ -129,6 +129,12 @@ def approve_tool_write(item_id: int, ctx) -> str:
         raise PendingError(f"no pending loop write {item_id}")
     try:
         result = run_tool(item.payload["tool"], item.payload["args"], ctx)
+        if isinstance(result, PendingWrite) and result.diff != item.payload.get("diff", ""):
+            # the owner approved what the card showed; apply nothing else, show them the new one
+            ctx.db.set_pending_payload(
+                item_id, {**item.payload, "diff": result.diff, "summary": result.summary}
+            )
+            raise PendingError("the change is different now; review it again")
         out = (
             result.apply() if isinstance(result, PendingWrite) else json.dumps(result, default=str)
         )

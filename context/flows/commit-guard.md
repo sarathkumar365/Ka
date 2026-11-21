@@ -1,6 +1,6 @@
 # Flow: commit guard
 
-**Summary.** A git pre-commit hook runs `scripts/commit_guard.py` on every staged file and blocks the commit if it finds a `.env` file, a PDF, something shaped like an API key or private key, or any phrase from the owner's private denylist. The denylist lives outside the code repo, in the data repo's `local/denylist.txt`, so the list of personal words is never committed either. This keeps a public code repo free of personal data even when a test fixture or a debug print slips into a commit.
+**Summary.** A git pre-commit hook runs `scripts/commit_guard.py` on every staged file and blocks the commit if it finds a `.env` file, a PDF, something shaped like an API key or private key, or any phrase from the operator's private denylist (one for the whole server, not per account). The denylist lives outside the code repo, in the data repo's `local/denylist.txt`, so the list of personal words is never committed either. This keeps a public code repo free of personal data even when a test fixture or a debug print slips into a commit.
 
 ```mermaid
 flowchart LR

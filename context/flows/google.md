@@ -19,6 +19,20 @@ flowchart LR
 3. For an unseen file id, `sync_drive` downloads it into `statements_dir` (temp file, then rename), runs `prepare_import`, and adds a `statement` card with period, row count, money in and out as text, check failures and `already_imported`. The file id goes into `app_state.drive_seen`, so a renamed file is not fetched again.
 4. Import on the card calls `approve_statement`: it re-runs `prepare_import` on the stored file, so a stale preview is never written, then `commit_import`. In the background, `push_from_config` replaces both Sheet tabs with every stored row (`valueInputOption=RAW`, so `-12.30` stays text), and category suggestions run if that flag is on.
 
+## Routes
+
+All need a session and flag `google`; each acts for the signed-in account only.
+
+| Route | Does |
+|---|---|
+| `GET /api/google/status` | connected or not, the Google email, the last Drive sync and Sheet copy results |
+| `GET /api/google/login` | starts the web sign-in (state kept 10 minutes, at most 5 per account) |
+| `GET /api/google/callback` | finishes it; an unknown or expired state is refused |
+| `POST /api/google/disconnect` | deletes the account's token |
+| `POST /api/google/sync` | checks the Drive folder now |
+| `POST /api/google/push` | copies transactions to the Sheet now |
+| `PUT /api/google/settings` | saves the account's Drive folder and Sheet ids |
+
 ## Why this way
 
 - **Direct APIs, not Google's MCP servers.** The Workspace MCP Developer Preview rejects Gmail accounts. `DriveClient` and `SheetsClient` are Protocols, so an MCP version can replace `ApiDrive` and `ApiSheets` later.

@@ -1,4 +1,4 @@
-data_repo: ~/Projects/ka-data
+data_repo: ~/ka-data  # scripts/setup.sh creates it here
 flags:
   nightly_extraction: false
   web_ui: false
@@ -20,5 +20,9 @@ models:
   grader: {provider: openrouter, model: "set-me"}  # eval judge (Opus)
 private_models:  # finance conversations, tried in order; an Ollama entry can go first later
   - {provider: openrouter, model: "set-me", zdr: true, only: [amazon-bedrock]}  # key from OPENROUTER_API_KEY
+# US dollars per million tokens, for providers that report no cost (OpenAI, Ollama). The loop cost
+# cap uses it; a model not listed counts at the dearest price here. Leave empty to skip estimates.
+# prices:
+#   set-me: {input_per_m: 0.15, output_per_m: 0.60}
 google:  # Drive statement inbox and Sheet copy; each account sets its folder and Sheet in Settings
   client_file: set-me  # path to the OAuth desktop client JSON, kept outside the repo

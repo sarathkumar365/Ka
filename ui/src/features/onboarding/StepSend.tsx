@@ -6,6 +6,7 @@ import { basicsFilled, type Draft, hasInput, summaryLine, toForm } from './draft
 import { toItems } from './memory'
 import { reducedMotion } from './ring'
 import { useIntakeJob } from './useIntakeJob'
+import { providerName } from './provider'
 
 export type SendPhase = 'idle' | 'sending' | 'running' | 'done' | 'failed'
 
@@ -174,7 +175,7 @@ export function StepSend({
     navTimer.current = window.setTimeout(onReview, 350) // Pending fades in behind the travelling ring
   }
 
-  const provider = settings?.models.default?.provider ?? 'your model provider'
+  const provider = providerName(settings?.models.default?.provider)
   const b = draft.basics
   const memory = toItems(draft.memory)
 

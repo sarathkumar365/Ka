@@ -107,7 +107,7 @@ def search_transactions(args: SearchArgs, ctx: ToolContext):
 )
 def sum_transactions(args: SumArgs, ctx: ToolContext):
     total, missing = sum_rows(ctx.store.transactions(), args.ids)
-    return {"total": total, "count": len(args.ids) - len(missing), "missing": missing}
+    return {"total": total, "count": len(set(args.ids)) - len(missing), "missing": missing}
 
 
 @tool(

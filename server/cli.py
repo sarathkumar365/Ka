@@ -38,18 +38,32 @@ def _cfg():
 
 
 def _check(_args: argparse.Namespace) -> int:
-    from server.users import UserError
+    """With --user, that account's data; without it, every account's, one line each."""
+    from server.store.db import Db
+    from server.users import user_config
 
-    try:
-        cfg = _cfg()
-    except UserError as e:
-        if _USER:  # a named account that does not exist is an error, not a fresh install
-            raise
-        print(f"ok: config valid; {e}")  # no accounts yet, or several: the data is per account
+    if _USER:
+        load_data(_cfg().data_repo)
+        print("ok: 11 files")
         return 0
-    load_data(cfg.data_repo)
-    print("ok: 11 files")
-    return 0
+    base = load_config()
+    db = Db.system(base.db_path)
+    try:
+        accounts = db.conn.execute("select id, username from users order by username").fetchall()
+    finally:
+        db.conn.close()
+    if not accounts:
+        print("ok: config valid; no accounts yet: sign up in the app")
+        return 0
+    failed = 0
+    for user_id, username in accounts:
+        try:
+            load_data(user_config(base, user_id).data_repo)
+            print(f"ok: {username}")
+        except Exception as e:  # noqa: BLE001  report every account, then fail once
+            failed += 1
+            print(f"error: {username}: {e}")
+    return 1 if failed else 0
 
 
 def _confirm(question: str) -> bool:
@@ -259,7 +273,11 @@ def _serve(args: argparse.Namespace) -> int:
         private_factory=(lambda: build_private_adapter(cfg)) if private else None,
         small_factory=lambda: build_adapter(cfg.model_for("small")),
     )
-    uvicorn.run(app, host="127.0.0.1", port=args.port)
+    # One place reads X-Forwarded-For: uvicorn, trusting only the local tailnet proxy. It takes the
+    # proxy's own (last) entry, so a client cannot pick its address; client_ip then sees that address.
+    uvicorn.run(
+        app, host="127.0.0.1", port=args.port, proxy_headers=True, forwarded_allow_ips="127.0.0.1"
+    )
     return 0
 
 

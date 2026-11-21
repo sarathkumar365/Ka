@@ -1,4 +1,4 @@
-import type { LoopTask, Trigger } from '../../lib/api'
+import type { LoopTask, TaskRun, Trigger } from '../../lib/api'
 
 const DAYS: Record<string, string> = {
   mon: 'Mondays', tue: 'Tuesdays', wed: 'Wednesdays', thu: 'Thursdays', fri: 'Fridays', sat: 'Saturdays', sun: 'Sundays',
@@ -35,4 +35,9 @@ export function triggerFromForm(f: TriggerForm): Trigger {
   const [h, m] = f.time.split(':').map(Number)
   const at = { type: 'cron' as const, hour: h || 0, minute: m || 0 }
   return f.every === 'weekly' ? { ...at, day_of_week: f.day || 'mon' } : at
+}
+
+/** "Run now" returns at once; the run is done when a run newer than the last one known has ended. */
+export function runSettled(runs: Pick<TaskRun, 'id' | 'finished_at'>[], lastKnown: number): boolean {
+  return runs.some((r) => r.id > lastKnown && r.finished_at !== null)
 }

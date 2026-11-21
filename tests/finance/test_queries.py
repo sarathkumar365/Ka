@@ -48,3 +48,12 @@ def test_sum_rows_counts_a_repeated_id_once():
     rows = [tx(1, "-10.00", "purchase"), tx(2, "-5.00", "purchase")]
     total, missing = sum_rows(rows, ["s-001", "s-001", "s-002", "s-009"])
     assert total == Decimal("-15.00") and missing == ["s-009"]
+
+
+def test_sum_tool_counts_unique_ids(ctx):
+    from server.agent.tools import run_tool
+
+    rows = [tx(1, "-10.00", "purchase"), tx(2, "-5.00", "purchase")]
+    ctx.store = type("Store", (), {"transactions": lambda self: rows})()
+    out = run_tool("finance_sum_transactions", {"ids": ["s-001", "s-001", "s-002"]}, ctx)
+    assert out["count"] == 2 and out["total"] == "-15.00"

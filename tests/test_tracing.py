@@ -56,3 +56,19 @@ def test_exporter_headers_for_langfuse(ctx):
     assert endpoint == "http://localhost:3000/api/public/otel/v1/traces"
     assert headers["Authorization"] == "Basic cGstbGYtMTpzay1sZi0y"
     assert headers["x-langfuse-ingestion-version"] == "4"
+
+
+def test_private_spans_carry_no_content(ctx, memory_exporter):
+    ctx.db = Db(":memory:", "avery")
+    cid = ctx.db.new_conversation(NOW())
+    ctx.db.mark_private(cid)
+    private = tracing.TracedAdapter(FakeAdapter([Reply(text="you spent 812.40", usage=Usage(10, 2))]), task="private")
+    run_turn("what did I spend at the cafe", conv_id=cid, db=ctx.db, adapter=private, ctx=ctx,
+             approve=lambda p: True, now=NOW)
+    with tracing.tool_span("finance_sum", {"ids": ["T-1"]}, private=lambda: True) as span:
+        span.result("812.40")
+    for s in memory_exporter.get_finished_spans():
+        assert "langfuse.observation.input" not in s.attributes, s.name
+        assert "langfuse.observation.output" not in s.attributes, s.name
+    model = next(s for s in memory_exporter.get_finished_spans() if s.name == "model")
+    assert model.attributes["gen_ai.usage.input_tokens"] == 10

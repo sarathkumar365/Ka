@@ -1,6 +1,6 @@
 # Flow: data repo (load, validate, write)
 
-**Summary.** The owner's career and memory data lives as YAML in a private git repo; `load_data` reads all eleven files, validates each against a strict schema and then checks the rules that span files. Every write goes through `writer.py`: patch an in-memory copy, validate the whole repo on a temp copy, show a diff, then lock, re-check and commit, rolling back on any failure. So the repo is never left half-written or invalid, and every change is one git commit the owner can see.
+**Summary.** Each account's career and memory data lives as YAML in its own folder (`users/<id>/`) of one private git repo; `load_data` reads all eleven files, validates each against a strict schema and then checks the rules that span files. Every write goes through `writer.py`: patch an in-memory copy, validate the whole repo on a temp copy, show a diff, then lock, re-check and commit, rolling back on any failure. So the repo is never left half-written or invalid, and every change is one git commit the owner can see.
 
 ```mermaid
 flowchart LR
@@ -8,7 +8,7 @@ flowchart LR
     M -->|_cross_checks| OK[valid data]
     P[Patch] -->|_edit in memory| C[changed docs]
     C -->|load_data on temp copy| D[ChangePlan + diff]
-    D -->|owner says yes| A[apply_change: lock, re-check, write, commit]
+    D -->|person says yes| A[apply_change: lock, re-check, write, commit]
     A -->|any error| R[restore old text, git reset]
 ```
 
@@ -32,7 +32,7 @@ A write (chat `propose_change`, a Pending approval, an intake bundle) builds a `
 
 | Case | Result |
 |---|---|
-| File missing, invalid YAML, unknown or wrong field | `DataRepoError` with file and field; `ka check` exits 1, the web app reports it |
+| File missing, invalid YAML, unknown or wrong field | `DataRepoError` with file and field; `ka check` exits 1 (without `--user` it checks every account and names the one that failed), the web app reports it |
 | Cross-file rule broken (unknown domain or category, counter too low) | `DataRepoError`; a write is refused before it lands |
 | Target file has uncommitted edits | `ChangeError: <file> has uncommitted changes`; nothing written |
 | File changed between proposal and yes | `ChangeError: <file> changed since proposal`; nothing written |

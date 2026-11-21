@@ -10,22 +10,22 @@
 
 | Flow | Doc | Source files |
 |---|---|---|
-| import-statement | `flows/import-statement.md` | `server/finance/{parser,reconcile,tagging,store,importer,suggest}.py`, `server/cli.py` |
+| import-statement | `flows/import-statement.md` | `server/finance/{parser,reconcile,tagging,store,importer,suggest,models}.py`, `server/cli.py` |
 | web | `flows/web.md` | `server/web/*`, `server/toolkits/core/web.py`, `server/agent/context.py` |
-| loops | `flows/loops.md` | `ui/src/features/loops/*`, `ui/src/features/pending/LoopCards.tsx`, `server/loops/*`, `server/api/loops.py`, `server/toolkits/core/schedule.py`, `server/memory/pending.py` |
+| loops | `flows/loops/index.md` (limits: `flows/loops/limits.md`) | `ui/src/features/loops/*`, `ui/src/features/pending/LoopCards.tsx`, `server/loops/*`, `server/api/loops.py`, `server/toolkits/core/schedule.py`, `server/memory/pending.py`, `server/api/app.py`, `server/cli.py` |
 | movies | `flows/movies.md` | `server/toolkits/movies/*`, `server/integrations/tmdb.py` |
 | toolkits | `flows/toolkits.md` | `server/toolkits/*`, `server/agent/tools/registry.py`, `server/agent/loop.py`, `server/api/describe.py` |
 | tools | `flows/tools.md` | `server/toolkits/*/*.py`, `server/agent/tools/registry.py`, `server/finance/{queries,statements}.py`, `server/integrations/data_repo/writer.py` |
 | ask-question | `flows/ask-question.md` | `server/agent/{loop,prompt}.py`, `server/agent/prompt.md`, `server/agent/adapters/*.py`, `server/store/db.py`, `server/chat.py` |
-| nightly-extraction | `flows/nightly-extraction.md` | `server/memory/extract.py`, `server/scheduler.py`, `server/cli.py` |
-| review-pending | `flows/review-pending.md` | `server/memory/pending.py`, `server/agent/tools/memory_tools.py`, `server/cli.py` |
+| nightly-extraction | `flows/nightly-extraction.md` | `server/memory/extract.py`, `server/scheduler.py`, `server/cli.py`, `server/jobs.py`, `server/api/app.py` |
+| review-pending | `flows/review-pending.md` | `server/memory/pending.py`, `server/toolkits/core/memory.py`, `server/cli.py` |
 | evals | `flows/evals.md` | `tests/evals/*` |
-| chat | `flows/chat.md` | `server/api/{chat,approvals,describe,conversations}.py`, `server/agent/loop.py`, `server/agent/adapters/chain.py`, `ui/src/features/chat/*`, `ui/src/app/Sidebar.tsx`, `ui/src/lib/stream.ts` |
+| chat | `flows/chat/index.md` (entity and composer: `flows/chat/entity.md`) | `server/api/{chat,approvals,describe,conversations}.py`, `server/agent/loop.py`, `server/agent/adapters/chain.py`, `ui/src/features/chat/*`, `ui/src/app/Sidebar.tsx`, `ui/src/lib/stream.ts`, `ui/src/lib/api.ts`, `ui/src/lib/icons.tsx` |
 | pending (UI) | `flows/pending.md` | `server/api/pending.py`, `ui/src/features/pending/*` |
-| google | `flows/google.md` | `server/integrations/google/*`, `server/finance/{drive_inbox,sheet_copy}.py`, `server/api/google.py`, `server/google_settings.py`, `ui/src/features/settings/GoogleSection.tsx`, `ui/src/features/pending/StatementCard.tsx` |
+| google | `flows/google.md` | `server/integrations/google/*`, `server/finance/{drive_inbox,sheet_copy}.py`, `server/api/google.py`, `server/google_settings.py`, `ui/src/features/settings/GoogleSection.tsx`, `ui/src/features/pending/StatementCard.tsx`, `server/jobs.py`, `server/api/app.py` |
 | activity | `flows/activity.md` | `server/api/{activity,describe}.py`, `ui/src/features/activity/*` |
 | settings | `flows/settings.md` | `server/api/settings.py`, `ui/src/features/settings/*`, `ui/src/lib/theme.ts` |
-| pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `server/api/app.py`, `ui/src/main.tsx`, `ui/scripts/make-icons.mjs`, `scripts/setup.sh` |
+| pwa | `flows/pwa.md` | `ui/vite.config.ts`, `ui/index.html`, `ui/src/lib/viewport.ts`, `ui/src/styles.css`, `server/api/app.py`, `ui/src/main.tsx`, `ui/scripts/make-icons.mjs`, `scripts/setup.sh` |
 | intake | `flows/intake.md` | `server/intake/*`, `server/api/{intake,onboarding}.py`, `ui/src/features/onboarding/*`, `ui/src/app/Shell.tsx` |
 | data repo | `flows/data-repo.md` | `server/integrations/data_repo/{loader,writer}.py`, `server/integrations/data_repo/schemas/*`, `server/users.py`, `server/users_starter/*` |
 | login | `flows/login.md` | `ui/src/features/auth/*`, `ui/src/app/{Shell,routes}.tsx`, `server/auth/*`, `server/api/{auth,deps}.py`, `server/users.py`, `server/locks.py`, `server/jobs.py`, `server/store/migrations.py` |

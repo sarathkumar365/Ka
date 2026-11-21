@@ -42,11 +42,25 @@ def test_agent_task_queues_writes_instead_of_applying(ctx):
     assert card.kind == "tool_write" and card.payload["tool"] == "propose_change" and "Zed" in card.payload["diff"]
 
 
-def test_remember_in_a_loop_is_queued_too(ctx):
+def test_loop_run_cannot_see_schedule_or_remember(ctx):
+    seen = []
+
+    class Spy(FakeAdapter):
+        def complete(self, messages, tools):
+            seen.extend(t["function"]["name"] for t in tools)
+            return super().complete(messages, tools)
+
+    db = Db(ctx.config.db_path, ctx.config.user_id)
+    s = TaskStore(db)
+    tid = s.add(ScheduledTask(name="t", kind="agent", trigger={"type": "interval", "minutes": 60},
+                              brief="remember x", created_by="ka"), NOW)
+    ctx.db = db
+    ctx.config = ctx.config.model_copy(update={"flags": {"loops": True}})
     before = commits(ctx.config)
-    db, _ = run_agent(ctx, [Reply(tool_calls=[ToolCall("1", "remember", json.dumps({"text": "x"}))]), Reply(text="ok")],
-                        brief="remember x")
-    assert commits(ctx.config) == before and db.list_pending()[0].kind == "tool_write"
+    replies = [Reply(tool_calls=[ToolCall("1", "remember", json.dumps({"text": "x"}))]), Reply(text="ok")]
+    run_task(s.get(tid), db, lambda t, rc: agent_task_body(t, rc, ctx, Spy(replies), NOW), NOW)
+    assert seen and "schedule_task" not in seen and "remember" not in seen
+    assert commits(ctx.config) == before and db.list_pending() == []
 
 
 def test_approving_tool_write_applies_it(ctx):
@@ -90,3 +104,22 @@ def test_finance_loop_uses_the_private_model(ctx):
 
     run_task(s.get(tid), db, body, NOW)
     assert len(private.calls) == 1 and len(default.calls) == 1
+
+
+def test_changed_diff_is_not_applied(ctx):
+    from server.memory.pending import PendingError
+
+    db, _ = run_agent(ctx, [Reply(tool_calls=[ToolCall("1", "propose_change", PATCH)]), Reply(text="q")])
+    card = db.list_pending()[0]
+    payload = {**card.payload, "diff": "something the owner saw that is no longer true"}
+    with db.conn:
+        db.conn.execute("update pending set payload=? where id=?", (json.dumps(payload), card.id))
+    before = commits(ctx.config)
+    tctx = ToolContext(config=ctx.config, store=CsvFinanceStore(ctx.config.finance_dir), db=db)
+    try:
+        approve_tool_write(card.id, tctx)
+        raise AssertionError("applied a change the owner never saw")
+    except PendingError as e:
+        assert "different now" in str(e)
+    assert commits(ctx.config) == before
+    assert db.get_pending(card.id).status == "pending" and "Zed" in db.get_pending(card.id).payload["diff"]

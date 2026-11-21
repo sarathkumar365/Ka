@@ -27,6 +27,7 @@ flowchart LR
 
 - **Plain OpenTelemetry, not the Langfuse SDK.** Vendor-neutral spans; Langfuse reads `gen_ai.*` and `langfuse.*` attributes. Switching backends is an endpoint change.
 - **Wrap the adapter, not each call site.** One class covers every model call, now and later.
+- **No content from private chats.** A finance conversation's model calls (`task="private"`) and its tool and turn spans export timings and token counts only. Tool and turn spans decide at their end, because a chat turns private in the turn that first reads finance data.
 - **Self-hosted.** LangSmith self-hosting needs an enterprise plan; Langfuse runs free in Docker.
 
 ## Failure cases

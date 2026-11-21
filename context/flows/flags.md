@@ -30,7 +30,7 @@ flowchart LR
 ## Why this way
 
 - **One list, checked at load.** A misspelt flag is an error, not a silent "off".
-- **No flag library.** Booleans in YAML plus a dict in code are enough for one owner.
+- **No flag library.** Booleans in YAML plus a dict in code are enough for one operator.
 - **Remove the flag when the feature is stable**, deleting its entry in `FLAGS` and every `is_on` for it.
 
 ## Failure cases

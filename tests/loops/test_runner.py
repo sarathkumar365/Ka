@@ -106,3 +106,24 @@ def test_ok_run_records_result(db):
     run_task(task, db, lambda t, rc: {"new": 2}, NOW + timedelta(minutes=1))
     r = s.runs(task.id)[0]
     assert r.status == "ok" and r.result == {"new": 2} and db.list_pending() == []
+
+
+def test_two_scheduled_loops_of_one_account_both_run(monkeypatch):
+    import threading
+    import time
+
+    from server.loops import service
+
+    ran = []
+
+    def slow(cfg, user_id, task_id, *a):
+        time.sleep(0.2)
+        ran.append(task_id)
+
+    monkeypatch.setattr(service, "_run", slow)
+    threads = [threading.Thread(target=service.scheduled, args=(None, "u_a", t, None)) for t in ("A", "B")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert sorted(ran) == ["A", "B"]  # the second waits its turn instead of being skipped

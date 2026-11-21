@@ -367,7 +367,7 @@ The coding agent builds against mocks and synthetic data until each item is read
 
 Plan: `Docs/next-phase-plan.md`; tasks: `Docs/superpowers/plans/2026-11-20-ka-next-phase.md`. Owner's calls:
 
-- Login is always on (no flag): accounts are created as the first step of onboarding (one account at first, withdrawn on 2026-11-20, see below); server-side sessions in an HttpOnly cookie, 14-day sliding expiry, 30-day maximum; lockout after 5 wrong passwords. Every SQLite row carries `user_id`.
+- Login is always on (no flag): accounts are created as the first step of onboarding (one account at first, withdrawn on 2026-11-20, see below); server-side sessions in an HttpOnly cookie, 14-day sliding expiry, 30-day maximum; 5 wrong passwords block that address and username for 15 minutes (no block per username alone). Every SQLite row carries `user_id`.
 - Everything personal lives under `users/<user_id>/` in the data repo (YAML, memory files, `settings.yaml` with the Drive folder and Sheet ids, `local/`). Generic configuration (models, flags, the OAuth client file) stays in `config.yaml`. (The legacy-repo claim was removed with the multi-account change.)
 - Toolkits are part of the system (no flag): core always loaded, finance and movies loaded on demand with `load_toolkit`; one memory file per toolkit next to `memory/core.yaml`.
 - Flags for new features: `tracing`, `web_search`, `movies`, `loops`, all checked through `server/flags.py`; unknown flag names stop startup.
